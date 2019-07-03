@@ -1,4 +1,4 @@
-const Autohook = require('./index');
+const {Autohook} = require('./index');
 
 const qs = require('querystring');
 const request = require('request');
@@ -13,8 +13,6 @@ const os = require('os');
 const get = util.promisify(request.get);
 const post = util.promisify(request.post);
 const sleep = util.promisify(setTimeout);
-
-require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
 const requestTokenURL = new URL('https://api.twitter.com/oauth/request_token');
 const accessTokenURL = new URL('https://api.twitter.com/oauth/access_token');
@@ -160,9 +158,11 @@ async function sayHi(event, oauth) {
         user_id: userToMonitor.user_id,
         consumer_key: process.env.TWITTER_CONSUMER_KEY,
         consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+        reset: true,
       });
     });
 
+    await webhook.removeWebhooks();
     await webhook.start();
     await webhook.subscribe(userToMonitor);
     
