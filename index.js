@@ -2,7 +2,6 @@
 
 const util = require('util');
 const request = require('request');
-const argv = require('yargs').argv;
 const ngrok = require('ngrok');
 const http = require('http');
 const url = require('url');
@@ -16,10 +15,8 @@ const put = util.promisify(request.put);
 const EventEmitter = require('events');
 const emitter = new EventEmitter();
 
-const PORT = process.env.PORT || 1337;
+const DEFAULT_PORT = 1337;
 const WEBHOOK_ROUTE = '/webhook';
-
-require('dotenv').config();
 
 const invariant = (assert, msg = null) => {
   if (!assert) {
@@ -31,23 +28,23 @@ const invariant = (assert, msg = null) => {
 const bearerToken = async (auth) => {
   const requestConfig = {
     url: 'https://api.twitter.com/oauth2/token',
-    method: 'POST',
     auth: {
       user: auth.consumer_key,
       pass: auth.consumer_secret,
     },
     form: {
-      'grant_type': 'client_credentials',
+      grant_type: 'client_credentials',
     },
   };
 
-  await get(requestConfig);
+  const response = await post(requestConfig);
+  return JSON.parse(response.body).access_token;
 }
 
 const getSubscriptionsCount = async (auth) => {
   const token = await bearerToken(auth);
   const requestConfig = {
-    url: 'https://api.twitter.com/1.1/account_activity/all/count.json',
+    url: 'https://api.twitter.com/1.1/account_activity/all/subscriptions/count.json',
     auth: { bearer: token },
   };
 
@@ -100,39 +97,57 @@ const setWebhook = async (url, auth, env) => {
   return JSON.parse(response.body);
 }
 
+const verifyCredentials = async (auth) => {
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/account/verify_credentials.json',
+    oauth: auth,
+  };
 
-const startServer = (auth) => {
-  const server = http.createServer((req, res) => {
-    const route = url.parse(req.url, true);
-
-    if (!route.pathname) {
-      return;
-    }
-
-    if (route.query.crc_token) {
-      return validateWebhook(route.query.crc_token, auth, res);
-    }
-
-    emitter.emit('event', req, res);
-
-    console.log('route:', route);
-    console.log('req:', req);
-  });
-
-  server.listen(PORT);  
+  const response = await get(requestConfig);
+  return JSON.parse(response.body);
 }
 
-module.exports = {
-  on: emitter.on,
-  async start(config = {token, token_secret, consumer_key, consumer_secret, env}) {
+class Autohook extends EventEmitter {
+  constructor(config = {token, token_secret, consumer_key, consumer_secret, env, port}) {
+    super();
     this.auth = (({token, token_secret, consumer_key, consumer_secret}) => ({token, token_secret, consumer_key, consumer_secret}))(config);
-    this.env = env;
-    startServer(this.auth);
-    const webhooks = await getWebhooks(this.auth, config.env);  
-    await deleteWebhooks(webhooks, this.auth, config.env);
+    this.env = config.env;
+    this.port = config.port || DEFAULT_PORT;
+  }
+
+  startServer() {
+    this.server = http.createServer((req, res) => {
+      const route = url.parse(req.url, true);
+
+      if (!route.pathname) {
+        return;
+      }
+
+      if (route.query.crc_token) {
+        return validateWebhook(route.query.crc_token, this.auth, res);
+      }
+
+      if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString();
+        });
+        req.on('end', () => {
+          this.emit('event', JSON.parse(body));
+          res.writeHead(200);
+          res.end();
+        });
+      }
+    }).listen(this.port);
+  }
+
+  async start() {
+    this.startServer();
+    const webhooks = await getWebhooks(this.auth, this.env);  
+    await deleteWebhooks(webhooks, this.auth, this.env);
     const url = await ngrok.connect(PORT);
     const webhookUrl = `${url}${WEBHOOK_ROUTE}`;
-    const webhook = await setWebhook(webhookUrl, this.auth, config.env);
+    const webhook = await setWebhook(webhookUrl, this.auth, this.env);
     if (webhook.url === webhookUrl && webhook.valid) {
       console.log('Webhook created.');
       return module.exports;
@@ -140,29 +155,31 @@ module.exports = {
       throw new Error(e);
       return null;
     }
-  },
+  }
 
-  async subscribe({token, token_secret}) {
+  async subscribe({oauth_token, oauth_token_secret, screen_name = null}) {
     const auth = {
       consumer_key: this.auth.consumer_key,
       consumer_secret: this.auth.consumer_secret,
-      token: token,
-      token_secret: token_secret,
+      token: oauth_token,
+      token_secret: oauth_token_secret,
     };
-
-    const {screen_name} = await verifyCredentials(auth);
-    if (screen_name) {
-      console.log(`Subscribing this app to ${screen_name}'s activities…`);
+    
+    screen_name = screen_name || await verifyCredentials(auth);
+    if (!screen_name) {
+      throw new Error('Cannot subscribe this user: invalid OAuth credentials provided.');
+      return;
     }
 
     const {subscriptions_count, provisioned_count} = await getSubscriptionsCount(auth);
 
     if (subscriptions_count === provisioned_count) {
-      return console.error([`Cannot subscribe to ${screen_name}'s activities:`,
+      throw new Error([`Cannot subscribe to ${screen_name}'s activities:`,
        'you exceeded the number of subscriptions available to you.',
        'Please remove at least a subscription or upgrade your premium access at',
        'https://developer.twitter.com/apps.'
        ].join(' '));
+      return;
     }
 
     const requestConfig = {
@@ -170,6 +187,13 @@ module.exports = {
       oauth: auth,
     };
 
-    await post(requestConfig);
-  },
+    const response = await post(requestConfig);
+    if (response.statusCode === 204) {
+      console.log(`Subscribed to ${screen_name}'s activities.`);
+    } else {
+      throw new Error(`Cannot subscribe to ${screen_name}'s activities. Try again later (${response.body}).`);
+    }
+  }
 }
+
+module.exports = Autohook;

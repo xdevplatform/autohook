@@ -1,4 +1,4 @@
-const autoWebhooks = require('./index');
+const Autohook = require('./index');
 
 const qs = require('querystring');
 const request = require('request');
@@ -7,18 +7,18 @@ const readline = require('readline').createInterface({
   output: process.stdout
 });
 const util = require('util');
+const path = require('path');
+const os = require('os');
 
 const get = util.promisify(request.get);
 const post = util.promisify(request.post);
+const sleep = util.promisify(setTimeout);
+
+require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
 const requestTokenURL = new URL('https://api.twitter.com/oauth/request_token');
 const accessTokenURL = new URL('https://api.twitter.com/oauth/access_token');
 const authorizeURL = new URL('https://api.twitter.com/oauth/authorize');
-const endpointURL = new URL('https://api.twitter.com/labs/1/users');
-
-const params = {
-  usernames: 'TwitterDev',
-};
 
 async function input(prompt) {
   return new Promise(async (resolve, reject) => {
@@ -42,7 +42,7 @@ async function accessToken({oauth_token, oauth_token_secret}, verifier) {
   if (req.body) {
     return qs.parse(req.body);
   } else {
-    throw new Error('Cannot get an OAuth request token');
+    throw new Error('Cannot get an OAuth access token');
   }
 }
 
@@ -61,6 +61,78 @@ async function requestToken() {
   }
 }
 
+async function markAsRead(messageId, senderId, auth) {
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/direct_messages/mark_read.json',
+    form: {
+      last_read_event_id: messageId,
+      recipient_id: senderId,
+    },
+    oauth: auth,
+  };
+
+  await post(requestConfig);
+}
+
+async function indicateTyping(senderId, auth) {
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/direct_messages/indicate_typing.json',
+    form: {
+      recipient_id: senderId,
+    },
+    oauth: auth,
+  };
+
+  await post(requestConfig);
+}
+
+async function sayHi(event, oauth) {
+  // Only react to direct messages
+  if (!event.direct_message_events) {
+    return;
+  }
+
+  const message = event.direct_message_events.shift();
+ 
+  // Filter out messages created by the the authenticating users (to avoid sending messages to oneself)
+  if (message.message_create.sender_id === oauth.user_id) {
+    return;
+  }
+
+  const oAuthConfig = {
+    token: oauth.oauth_token,
+    token_secret: oauth.oauth_token_secret,
+    consumer_key: oauth.consumer_key,
+    consumer_secret: oauth.consumer_secret,
+  };
+
+
+  await markAsRead(message.message_create.id, message.message_create.sender_id, oAuthConfig);
+  await indicateTyping(message.message_create.sender_id, oAuthConfig);
+  const senderScreenName = event.users[message.message_create.sender_id].screen_name;
+
+  console.log(`${senderScreenName} says ${message.message_create.message_data.text}`);
+
+  const requestConfig = {
+    url: 'https://api.twitter.com/1.1/direct_messages/events/new.json',
+    oauth: oAuthConfig,
+    json: {
+      event: {
+        type: 'message_create',
+        message_create: {
+          target: {
+            recipient_id: message.message_create.sender_id,
+          },
+          message_data: {
+            text: `Hi @${senderScreenName}! 👋`,
+          },
+        },
+      },
+    },
+  };
+  await post(requestConfig);
+}
+
 (async () => {
   try {
 
@@ -73,16 +145,27 @@ async function requestToken() {
     const pin = await input('Paste the PIN here: ');
     
     // Get the access token
-    const oAuthAccessToken = await accessToken(oAuthRequestToken, pin.trim());
-    autoWebhooks.on('event', (req, res) => {console.log('event:', req)})
-    await autoWebhooks.start({
+    const userToMonitor = await accessToken(oAuthRequestToken, pin.trim());
+    const webhook = new Autohook({
       token: process.env.TWITTER_ACCESS_TOKEN,
       token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       consumer_key: process.env.TWITTER_CONSUMER_KEY,
       consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-      env: 'dev'});
+      env: process.env.TWITTER_WEBHOOK_ENV});
 
-    await autoWebhooks.subscribe({token: oAuthAccessToken.oauth_token, token_secret: oAuthAccessToken.oauth_token_secret});
+    webhook.on('event', async (event) => {
+      await sayHi(event, {
+        oauth_token: userToMonitor.oauth_token,
+        oauth_token_secret: userToMonitor.oauth_token_secret,
+        user_id: userToMonitor.user_id,
+        consumer_key: process.env.TWITTER_CONSUMER_KEY,
+        consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+      });
+    });
+
+    await webhook.start();
+    await webhook.subscribe(userToMonitor);
+    
   } catch(e) {
     console.error(e);
     process.exit(-1);

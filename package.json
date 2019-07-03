@@ -1,20 +1,20 @@
 {
-  "name": "twitter-auto-webhooks",
+  "name": "twitter-autohook",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js"
   },
   "bin": {
-    "twitter-auto-webhooks": "./cli.js"
+    "autohook": "./cli.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "commander": "^2.20.0",
     "dotenv": "^8.0.0",
     "ngrok": "^3.2.1",
-    "request": "^2.88.0",
-    "yargs": "^13.2.4"
+    "request": "^2.88.0"
   }
 }
