@@ -190,10 +190,13 @@ class Autohook extends EventEmitter {
     await deleteWebhooks(webhooks, this.auth, this.env);
   }
 
-  async start() {
+  async start(webhookUrl = null) {
     this.startServer();
-    const url = await ngrok.connect(this.port);
-    const webhookUrl = `${url}${WEBHOOK_ROUTE}`;
+    
+    if (!webhookUrl) {
+      const url = await ngrok.connect(this.port);
+      webhookUrl = `${url}${WEBHOOK_ROUTE}`;      
+    }
     
     try {
       const webhook = await setWebhook(webhookUrl, this.auth, this.env);  
@@ -249,4 +252,4 @@ class Autohook extends EventEmitter {
   }
 }
 
-module.exports = {Autohook, TooManyWebhooksError, UserSubscriptionError};
+module.exports = {Autohook, TooManyWebhooksError, UserSubscriptionError, setWebhook, validateWebhook};

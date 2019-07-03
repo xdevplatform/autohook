@@ -18,6 +18,7 @@ const argv = require('commander')
   .option('--consumer-secret <consumerSecret>', 'your OAuth consumer secret. (Env var: TWITTER_CONSUMER_SECRET)')
   .option('--env <env>', 'your Premium environment label as defined in https://developer.twitter.com/en/account/environments. (Env var: TWITTER_WEBHOOK_ENV)')
   .option('--port <port>', 'port where the local HTTP server should run. Default: 1337. (Env var: PORT)')
+  .option('--url <url>', 'URL to an existing webhook configured to respond to Twitter')
   .option('--subscribe <accessToken:accessTokenSecret>', 'subscribes to activities of the Twitter user idenfified by the specified OAuth credentials', (val, prev) => {
     const [oauth_token, oauth_secret] = val.split(':');
     const oauth = {oauth_token, oauth_secret};
@@ -58,7 +59,7 @@ const subscribe = async (auth) => {
   }
 
   try {
-    await webhook.start();  
+    await webhook.start(argv.webhookUrl || null);  
   } catch(e) {
     switch (e.constructor.name) {
       case TooManyWebhooksError.name:
