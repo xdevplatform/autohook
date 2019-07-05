@@ -19,6 +19,7 @@ const argv = require('commander')
   .option('--env <env>', 'your Premium environment label as defined in https://developer.twitter.com/en/account/environments. (Env var: TWITTER_WEBHOOK_ENV)')
   .option('--port <port>', 'port where the local HTTP server should run. Default: 1337. (Env var: PORT)')
   .option('--url <url>', 'URL to an existing webhook configured to respond to Twitter')
+  .option('-s, --subscribe-me', 'subscribes the app to listen to activities from your user context specified by the current access token credentials')
   .option('--subscribe <accessToken:accessTokenSecret>', 'subscribes to activities of the Twitter user idenfified by the specified OAuth credentials', (val, prev) => {
     const [oauth_token, oauth_secret] = val.split(':');
     const oauth = {oauth_token, oauth_secret};
@@ -77,10 +78,12 @@ const subscribe = async (auth) => {
 
   }
 
-  await subscribe({
-    oauth_token: argv.token || process.env.TWITTER_ACCESS_TOKEN,
-    oauth_token_secret: argv.secret || process.env.TWITTER_ACCESS_TOKEN_SECRET,
-  });
+  if (!!argv.subscribeMe) {
+    await subscribe({
+      oauth_token: argv.token || process.env.TWITTER_ACCESS_TOKEN,
+      oauth_token_secret: argv.secret || process.env.TWITTER_ACCESS_TOKEN_SECRET,
+    });    
+  }
 
   for (oauth in argv.subscribe) {
     await subscribe(oauth);
