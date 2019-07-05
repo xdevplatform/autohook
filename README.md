@@ -20,7 +20,7 @@ const { Autohook } = require('twitter-autohook');
 (async ƛ => {
   const webhook = new Autohook();
   
-  // Removes any existing webhook
+  // Removes existing webhooks
   await webhook.removeWebhooks();
   
   // Listens to incoming activity
@@ -29,16 +29,16 @@ const { Autohook } = require('twitter-autohook');
   // Starts a server and adds a new webhook
   webhook.start();
   
-  // Subscibes to a user's activity
+  // Subscribes to a user's activity
   webhook.subscribe({oauth_token, oauth_token_secret});
 })();
 ```
 
 ### Command line
 
-Starting Autohook from the comman line is useful when you need to test your connection and subscription.
+Starting Autohook from the command line is useful when you need to test your connection and subscriptions.
 
-When started from the command line, Autohook simply provisions a webhook. It echoes any incoming event to `stdout` only after you [subscribe your app](https://developer.twitter.com/en/docs/accounts-and-users/subscribe-account-activity/quick-start/enterprise-account-activity-api) to listen to the activity for one or more accounts. 
+When started from the command line, Autohook simply provisions a webhook, subscribes your user (unless you specify `--do-not-subscribe-me`), and echoes incoming events to `stdout`.
 
 ```bash
 # Starts a server, removes any existing webhook, adds a new webhook, and subscribes to the authenticating user's activity.
@@ -50,7 +50,7 @@ $ autohook --help
 
 ## OAuth
 
-Autohook works only when pass your OAuth credentials. You won't have to figure out OAuth by yourself – Autohook will work that out for you.
+Autohook works only when you pass your OAuth credentials. You won't have to figure out OAuth by yourself – Autohook will work that out for you.
 
 You can pass your OAuth credentials in a bunch of ways.
 
@@ -66,7 +66,7 @@ TWITTER_ACCESS_TOKEN_SECRET= # https://developer.twitter.com/en/apps ➡️ Your
 TWITTER_WEBHOOK_ENV= # https://developer.twitter.com/en/account/environments ➡️ One of 'Dev environment label' or 'Prod environment label'
 ```
 
-Autohook will pick up these details automatically, so you won't have to specify anytihing in code or via CLI.
+Autohook will pick up these details automatically, so you won't have to specify anything in code or via CLI.
 
 ## Env variables
 
