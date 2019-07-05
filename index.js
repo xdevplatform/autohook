@@ -177,7 +177,7 @@ class Autohook extends EventEmitter {
           body += chunk.toString();
         });
         req.on('end', () => {
-          this.emit('event', JSON.parse(body));
+          this.emit('event', JSON.parse(body), req);
           res.writeHead(200);
           res.end();
         });
