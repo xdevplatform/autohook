@@ -38,9 +38,11 @@ const webhook = new Autohook({
   port: argv.port || process.env.PORT,
 });
 
+webhook.on('event', event => console.log(JSON.stringify(event, null, 2)));
+
 const subscribe = async (auth) => {
   try {
-    webhook.subscribe(auth)  ;
+    webhook.subscribe(auth);
   } catch(e) {
     switch (e.constructor.name) {
       case UserSubscriptionError.name:
