@@ -2,6 +2,8 @@
 
 Autohook configures and manages [Twitter webhooks](https://developer.twitter.com/en/docs/accounts-and-users/subscribe-account-activity/guides/managing-webhooks-and-subscriptions) for you. Zero configuration. Just run and go!
 
+![Demo](demo.gif)
+
 * 🚀 Spawns a server for you
 * ⚙️ Registers a webhook (it removes existing webhooks if you want, and you can add more than one webhook if your Premium subscription supports it)
 * ✅ Performs the CRC validation when needed
