@@ -151,7 +151,7 @@ class Autohook extends EventEmitter {
     consumer_secret = process.env.TWITTER_CONSUMER_SECRET,
     env = process.env.TWITTER_WEBHOOK_ENV,
     port = process.env.PORT,
-  }) {
+  } = {}) {
 
     super();
     this.auth = {token, token_secret, consumer_key, consumer_secret};
