@@ -1,6 +1,6 @@
 {
   "name": "twitter-autohook",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Automatically setup and serve webhooks for the Twitter Account Activity API",
   "main": "index.js",
   "bin": {
@@ -8,6 +8,11 @@
   },
   "author": "Twitter",
   "license": "MIT",
+  "keywords": [
+    "twitter",
+    "twitter-api",
+    "webhooks"
+  ],
   "dependencies": {
     "commander": "^2.20.0",
     "dotenv": "^8.0.0",
