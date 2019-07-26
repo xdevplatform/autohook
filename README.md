@@ -29,10 +29,10 @@ const { Autohook } = require('twitter-autohook');
   webhook.on('event', event => console.log('Something happened:', event);
   
   // Starts a server and adds a new webhook
-  webhook.start();
+  await webhook.start();
   
   // Subscribes to a user's activity
-  webhook.subscribe({oauth_token, oauth_token_secret});
+  await webhook.subscribe({oauth_token, oauth_token_secret});
 })();
 ```
 
