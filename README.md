@@ -26,7 +26,7 @@ const { Autohook } = require('twitter-autohook');
   await webhook.removeWebhooks();
   
   // Listens to incoming activity
-  webhook.on('event', event => console.log('Something happened:', event);
+  webhook.on('event', event => console.log('Something happened:', event));
   
   // Starts a server and adds a new webhook
   await webhook.start();
