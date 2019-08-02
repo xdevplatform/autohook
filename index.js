@@ -8,6 +8,12 @@ const url = require('url');
 const crypto = require('crypto');
 const path = require('path');
 const os = require('os');
+const EventEmitter = require('events');
+const {
+  TooManySubscriptionsError,
+  UserSubscriptionError,
+  WebhookURIError,
+} = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
@@ -16,21 +22,10 @@ const del = util.promisify(request.del);
 const post = util.promisify(request.post);
 const put = util.promisify(request.put);
 
-const EventEmitter = require('events');
 const emitter = new EventEmitter();
 
 const DEFAULT_PORT = 1337;
 const WEBHOOK_ROUTE = '/webhook';
-
-class TooManyWebhooksError extends Error {}
-class UserSubscriptionError extends Error {}
-
-const invariant = (assert, msg = null) => {
-  if (!assert) {
-    throw new Error(msg || 'Invariant violation.');
-    process.exit(-1);
-  }
-}
 
 let _bearerToken = null;
 const bearerToken = async (auth) => {
@@ -87,7 +82,19 @@ const getWebhooks = async (auth, env) => {
   }
 
   const response = await get(requestConfig);
-  return JSON.parse(response.body);
+  if (response.statusCode !== 200) {
+    throw new URIError([
+      `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
+      `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+      `your OAuth credentials are valid and can access '${env}'.`].join(' '));
+  }
+
+  try {
+    return JSON.parse(response.body);
+  } catch (e) {
+    throw TypeError('Error while parsing the response from the Twitter API:', e.message);
+    return [];
+  }
 }
 
 const deleteWebhooks = async (webhooks, auth, env) => {
@@ -110,10 +117,19 @@ const validateWebhook = (token, auth, res) => {
   res.end(JSON.stringify({response_token: `sha256=${responseToken}`}));
 }
 
-const setWebhook = async (url, auth, env) => {
-  console.log(`Registering ${url} as a new webhook…`);
+const setWebhook = async (webhookUrl, auth, env) => {
+  const parsedUrl = url.parse(webhookUrl);
+  if (parsedUrl.protocol === null || parsedUrl.host === 'null') {
+    throw new TypeError(`${webhookUrl} is not a valid URL. Please provide a valid URL and try again.`);
+    return;
+  } else if (parsedUrl.protocol !== 'https:') {
+    throw new TypeError(`${webhookUrl} is not a valid URL. Your webhook must be HTTPS.`);
+    return;
+  }
+
+  console.log(`Registering ${webhookUrl} as a new webhook…`);
   const endpoint = new URL(`https://api.twitter.com/1.1/account_activity/all/${env}/webhooks.json`);
-  endpoint.searchParams.append('url', url);
+  endpoint.searchParams.append('url', webhookUrl);
 
   const requestConfig = {
     url: endpoint.toString(),
@@ -124,10 +140,8 @@ const setWebhook = async (url, auth, env) => {
   const body = JSON.parse(response.body);
 
   if (body.errors) {
-    const error = body.errors[0];
-    if (error.code === 214) {
-      throw new TooManyWebhooksError();
-    }
+    throw new WebhookURIError(response.body);
+    return null;
   }
 
   return body;
@@ -140,23 +154,35 @@ const verifyCredentials = async (auth) => {
   };
 
   const response = await get(requestConfig);
-  return JSON.parse(response.body).screen_name;
+  if (response.statusCode === 200) {
+    return JSON.parse(response.body).screen_name;
+  } else {
+    throw new UserSubscriptionError(response.body);
+    return null;
+  }
 }
 
 class Autohook extends EventEmitter {
   constructor({
-    token = process.env.TWITTER_ACCESS_TOKEN,
-    token_secret = process.env.TWITTER_ACCESS_TOKEN_SECRET,
-    consumer_key = process.env.TWITTER_CONSUMER_KEY,
-    consumer_secret = process.env.TWITTER_CONSUMER_SECRET,
-    env = process.env.TWITTER_WEBHOOK_ENV,
-    port = process.env.PORT,
+    token = (process.env.TWITTER_ACCESS_TOKEN || '').trim(),
+    token_secret = (process.env.TWITTER_ACCESS_TOKEN_SECRET || '').trim(),
+    consumer_key = (process.env.TWITTER_CONSUMER_KEY || '').trim(),
+    consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
+    env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
+    port = process.env.PORT || DEFAULT_PORT,
   } = {}) {
+
+    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port}).map(el => {
+      const [key, value] = el;
+      if (!value) {
+        throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
+      }
+    });
 
     super();
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.env = env;
-    this.port = port || DEFAULT_PORT;
+    this.port = port;
   }
 
   startServer() {
@@ -210,23 +236,24 @@ class Autohook extends EventEmitter {
     const auth = {
       consumer_key: this.auth.consumer_key,
       consumer_secret: this.auth.consumer_secret,
-      token: oauth_token,
-      token_secret: oauth_token_secret,
+      token: oauth_token.trim(),
+      token_secret: oauth_token_secret.trim(),
     };
 
-    screen_name = screen_name || await verifyCredentials(auth);
-    if (!screen_name) {
-      throw new UserSubscriptionError('Cannot subscribe this user: invalid OAuth credentials provided.');
+    try {
+      screen_name = screen_name || await verifyCredentials(auth);
+    } catch (e) {
+      throw e;
       return;
     }
 
     const {subscriptions_count, provisioned_count} = await getSubscriptionsCount(auth);
 
     if (subscriptions_count === provisioned_count) {
-      throw new UserSubscriptionError([`Cannot subscribe to ${screen_name}'s activities:`,
+      throw new TooManySubscriptionsError([`Cannot subscribe to ${screen_name}'s activities:`,
        'you exceeded the number of subscriptions available to you.',
-       'Please remove at least a subscription or upgrade your premium access at',
-       'https://developer.twitter.com/apps.'
+       'Please remove a subscription or upgrade your premium access at',
+       'https://developer.twitter.com/apps.',
        ].join(' '));
       return;
     }
@@ -235,21 +262,17 @@ class Autohook extends EventEmitter {
       url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/subscriptions.json`,
       oauth: auth,
     };
-    try {
-      const response = await post(requestConfig);  
-      if (response.statusCode === 204) {
-        console.log(`Subscribed to ${screen_name}'s activities.`);
-        updateSubscriptionCount(1);
-      } else {
-        const message = JSON.parse(response.body);
-        throw new UserSubscriptionError(`Cannot subscribe to ${screen_name}'s activities: ${message.errors[0].message} (Twitter code: ${message.errors[0].code}).`);
-        return;
-      }
-    } catch(e) {
-      throw e;
+
+    const response = await post(requestConfig);
+    if (response.statusCode === 204) {
+      console.log(`Subscribed to ${screen_name}'s activities.`);
+      updateSubscriptionCount(1);
+    } else {
+      throw new UserSubscriptionError(response.body);
+      return;
     }
     
   }
 }
 
-module.exports = {Autohook, TooManyWebhooksError, UserSubscriptionError, setWebhook, validateWebhook};
+module.exports = {Autohook, WebhookURIError, UserSubscriptionError, TooManySubscriptionsError, setWebhook, validateWebhook};
