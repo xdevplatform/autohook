@@ -1,6 +1,6 @@
 {
   "name": "twitter-autohook",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Automatically setup and serve webhooks for the Twitter Account Activity API",
   "main": "index.js",
   "bin": {

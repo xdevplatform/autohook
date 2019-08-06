@@ -91,9 +91,14 @@ async function sayHi(event, oauth) {
   }
 
   const message = event.direct_message_events.shift();
+
+  // Filter out empty messages or non-message events
+  if (typeof message === 'undefined' || typeof message.message_create === 'undefined') {
+    return;
+  }
  
   // Filter out messages created by the the authenticating users (to avoid sending messages to oneself)
-  if (message.message_create.sender_id === oauth.user_id) {
+  if (message.message_create.sender_id === message.message_create.target.recipient_id) {
     return;
   }
 
@@ -152,6 +157,18 @@ async function sayHi(event, oauth) {
       env: process.env.TWITTER_WEBHOOK_ENV});
 
     webhook.on('event', async (event) => {
+      await sayHi(event, {
+        oauth_token: userToMonitor.oauth_token,
+        oauth_token_secret: userToMonitor.oauth_token_secret,
+        user_id: userToMonitor.user_id,
+        consumer_key: process.env.TWITTER_CONSUMER_KEY,
+        consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+        reset: true,
+      });
+    });
+
+    webhook.on('event', async (event) => {
+      console.log('We received an event!');
       await sayHi(event, {
         oauth_token: userToMonitor.oauth_token,
         oauth_token_secret: userToMonitor.oauth_token_secret,
