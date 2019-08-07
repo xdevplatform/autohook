@@ -68,7 +68,7 @@ const getSubscriptionsCount = async (auth) => {
     case 200:
       break;
     case 429:
-      throw new RateLimimitError(response);
+      throw new RateLimitError(response);
       break;
     default:
       throw new TwitterError(response);
@@ -99,7 +99,7 @@ const getWebhooks = async (auth, env) => {
     case 200:
       break;
     case 429:
-      throw new RateLimimitError(response);
+      throw new RateLimitError(response);
       break;
     default:
       throw new URIError([
@@ -132,7 +132,7 @@ const deleteWebhooks = async (webhooks, auth, env) => {
       case 204:
         break;
       case 429:
-        throw new RateLimimitError(response);
+        throw new RateLimitError(response);
         break;
       default:
         throw new URIError([
@@ -179,7 +179,7 @@ const setWebhook = async (webhookUrl, auth, env) => {
      throw new WebhookURIError(response);
      return null;
     case 429:
-      throw new RateLimimitError(response);
+      throw new RateLimitError(response);
       return null;
     default:
       throw new URIError([
