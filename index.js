@@ -100,12 +100,13 @@ const getWebhooks = async (auth, env) => {
       break;
     case 429:
       throw new RateLimitError(response);
-      break;
+      return [];
     default:
       throw new URIError([
       `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
       `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
       `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
+      return [];
   }
 
   try {
@@ -125,20 +126,23 @@ const deleteWebhooks = async (webhooks, auth, env) => {
     }
 
     console.log(`Removing ${url}…`);
-    await del(requestConfig);
+    const response = await del(requestConfig);
   
     switch (response.statusCode) {
       case 200:
       case 204:
-        break;
+        return true;
       case 429:
         throw new RateLimitError(response);
-        break;
+        return false;
       default:
         throw new URIError([
-        `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
-        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-        `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
+          `Cannot remove ${url}. Please make sure it belongs to '${env}', and that '${env}' is a`,
+          `valid environment defined in your Developer dashboard at`,
+          `https://developer.twitter.com/en/account/environments. Also check that your OAuth`,
+          `credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`,
+        ].join(' '));
+        return false;
     }
   }
 }
