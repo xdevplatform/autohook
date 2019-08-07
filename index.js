@@ -13,6 +13,7 @@ const {
   TooManySubscriptionsError,
   UserSubscriptionError,
   WebhookURIError,
+  RateLimitError,
 } = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
@@ -62,6 +63,17 @@ const getSubscriptionsCount = async (auth) => {
   };
 
   const response = await get(requestConfig);
+
+  switch (response.statusCode) {
+    case 200:
+      break;
+    case 429:
+      throw new RateLimitError(response);
+      break;
+    default:
+      throw new TwitterError(response);
+  }
+
   _getSubscriptionsCount = JSON.parse(response.body);
   return _getSubscriptionsCount;
 }
@@ -82,11 +94,18 @@ const getWebhooks = async (auth, env) => {
   }
 
   const response = await get(requestConfig);
-  if (response.statusCode !== 200) {
-    throw new URIError([
+
+  switch (response.statusCode) {
+    case 200:
+      break;
+    case 429:
+      throw new RateLimitError(response);
+      break;
+    default:
+      throw new URIError([
       `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
       `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-      `your OAuth credentials are valid and can access '${env}'.`].join(' '));
+      `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
   }
 
   try {
@@ -107,6 +126,20 @@ const deleteWebhooks = async (webhooks, auth, env) => {
 
     console.log(`Removing ${url}…`);
     await del(requestConfig);
+  
+    switch (response.statusCode) {
+      case 200:
+      case 204:
+        break;
+      case 429:
+        throw new RateLimitError(response);
+        break;
+      default:
+        throw new URIError([
+        `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
+        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+        `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
+    }
   }
 }
 
@@ -137,13 +170,26 @@ const setWebhook = async (webhookUrl, auth, env) => {
   }
 
   const response = await post(requestConfig);
-  const body = JSON.parse(response.body);
 
-  if (body.errors) {
-    throw new WebhookURIError(response.body);
-    return null;
+  switch (response.statusCode) {
+    case 200:
+    case 204:
+      break;
+    case 403:
+     throw new WebhookURIError(response);
+     return null;
+    case 429:
+      throw new RateLimitError(response);
+      return null;
+    default:
+      throw new URIError([
+      `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
+      `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+      `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
+      return null;
   }
 
+  const body = JSON.parse(response.body);
   return body;
 }
 
@@ -157,7 +203,7 @@ const verifyCredentials = async (auth) => {
   if (response.statusCode === 200) {
     return JSON.parse(response.body).screen_name;
   } else {
-    throw new UserSubscriptionError(response.body);
+    throw new UserSubscriptionError(response);
     return null;
   }
 }
@@ -268,7 +314,7 @@ class Autohook extends EventEmitter {
       console.log(`Subscribed to ${screen_name}'s activities.`);
       updateSubscriptionCount(1);
     } else {
-      throw new UserSubscriptionError(response.body);
+      throw new UserSubscriptionError(response);
       return;
     }
     
