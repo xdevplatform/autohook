@@ -2,6 +2,10 @@
   "name": "twitter-autohook",
   "version": "1.2.1",
   "description": "Automatically setup and serve webhooks for the Twitter Account Activity API",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/twitterdev/autohook"
+  },
   "main": "index.js",
   "bin": {
     "autohook": "./cli.js"
