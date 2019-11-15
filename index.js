@@ -43,6 +43,7 @@ const bearerToken = async (auth) => {
     form: {
       grant_type: 'client_credentials',
     },
+    ...this.headers,
   };
 
   const response = await post(requestConfig);
@@ -60,6 +61,7 @@ const getSubscriptionsCount = async (auth) => {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/account_activity/all/subscriptions/count.json',
     auth: { bearer: token },
+    ...this.headers,
   };
 
   const response = await get(requestConfig);
@@ -91,10 +93,10 @@ const getWebhooks = async (auth, env) => {
   const requestConfig = {
     url: `https://api.twitter.com/1.1/account_activity/all/${env}/webhooks.json`,
     oauth: auth,
-  }
+    ...this.headers,
+  };
 
   const response = await get(requestConfig);
-
   switch (response.statusCode) {
     case 200:
       break;
@@ -123,6 +125,7 @@ const deleteWebhooks = async (webhooks, auth, env) => {
     const requestConfig = {
       url: `https://api.twitter.com/1.1/account_activity/all/${env}/webhooks/${id}.json`,
       oauth: auth,
+      ...this.headers,
     }
 
     console.log(`Removing ${url}…`);
@@ -147,11 +150,9 @@ const deleteWebhooks = async (webhooks, auth, env) => {
   }
 }
 
-const validateWebhook = (token, auth, res) => {
+const validateWebhook = (token, auth) => {
   const responseToken = crypto.createHmac('sha256', auth.consumer_secret).update(token).digest('base64');
-
-  res.writeHead(200, {'content-type': 'application/json'});
-  res.end(JSON.stringify({response_token: `sha256=${responseToken}`}));
+  return {response_token: `sha256=${responseToken}`};
 }
 
 const setWebhook = async (webhookUrl, auth, env) => {
@@ -171,6 +172,7 @@ const setWebhook = async (webhookUrl, auth, env) => {
   const requestConfig = {
     url: endpoint.toString(),
     oauth: auth,
+    ...this.headers,
   }
 
   const response = await post(requestConfig);
@@ -179,10 +181,12 @@ const setWebhook = async (webhookUrl, auth, env) => {
     case 200:
     case 204:
       break;
+    case 400:
     case 403:
      throw new WebhookURIError(response);
      return null;
     case 429:
+    console.log(response.headers);
       throw new RateLimitError(response);
       return null;
     default:
@@ -201,6 +205,7 @@ const verifyCredentials = async (auth) => {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/account/verify_credentials.json',
     oauth: auth,
+    ...this.headers,
   };
 
   const response = await get(requestConfig);
@@ -220,6 +225,7 @@ class Autohook extends EventEmitter {
     consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
     env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
     port = process.env.PORT || DEFAULT_PORT,
+    headers = [],
   } = {}) {
 
     Object.entries({token, token_secret, consumer_key, consumer_secret, env, port}).map(el => {
@@ -233,6 +239,7 @@ class Autohook extends EventEmitter {
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.env = env;
     this.port = port;
+    this.headers = headers;
   }
 
   startServer() {
@@ -244,7 +251,9 @@ class Autohook extends EventEmitter {
       }
 
       if (route.query.crc_token) {
-        return validateWebhook(route.query.crc_token, this.auth, res);
+        const crc = validateWebhook(route.query.crc_token, this.auth);
+        res.writeHead(200, {'content-type': 'application/json'});
+        res.end(JSON.stringify(crc));
       }
 
       if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
@@ -267,9 +276,9 @@ class Autohook extends EventEmitter {
   }
 
   async start(webhookUrl = null) {
-    this.startServer();
     
     if (!webhookUrl) {
+      this.startServer();
       const url = await ngrok.connect(this.port);
       webhookUrl = `${url}${WEBHOOK_ROUTE}`;      
     }
@@ -311,6 +320,7 @@ class Autohook extends EventEmitter {
     const requestConfig = {
       url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/subscriptions.json`,
       oauth: auth,
+      ...this.headers,
     };
 
     const response = await post(requestConfig);
@@ -325,4 +335,4 @@ class Autohook extends EventEmitter {
   }
 }
 
-module.exports = {Autohook, WebhookURIError, UserSubscriptionError, TooManySubscriptionsError, setWebhook, validateWebhook};
+module.exports = {Autohook, WebhookURIError, UserSubscriptionError, TooManySubscriptionsError, validateWebhook};

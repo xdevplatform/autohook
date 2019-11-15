@@ -1,4 +1,4 @@
-const {Autohook, setWebhook, validateWebhook} = require('..');
+const {Autohook, validateWebhook} = require('..');
 
 const url = require('url');
 const ngrok = require('ngrok');
@@ -14,7 +14,9 @@ const startServer = (port, auth) => http.createServer((req, res) => {
   }
 
   if (route.query.crc_token) {
-    return validateWebhook(route.query.crc_token, auth, res);
+    const crc = validateWebhook(route.query.crc_token, auth, res);
+    res.writeHead(200, {'content-type': 'application/json'});
+    res.end(JSON.stringify(crc));
   }
 
   if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
@@ -49,7 +51,7 @@ const startServer = (port, auth) => http.createServer((req, res) => {
 
     const webhook = new Autohook(config);
     await webhook.removeWebhooks();
-    await setWebhook(url, config, config.env);
+    await webhook.start(webhookURL);
     await webhook.subscribe({
       oauth_token: config.token,
       oauth_token_secret: config.token_secret,

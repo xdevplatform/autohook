@@ -28,10 +28,15 @@ class RateLimitError extends Error {
       code = body.errors[0].code;
     }
 
-    const requestAllowed = response.headers['x-rate-limit-limit'];
-    const resetAt = response.headers['x-rate-limit-reset'] * 1000 - (new Date().getTime());
-    const resetAtMin = Math.round(resetAt / 60 / 1000);
-    super(`You exceeded the rate limit for ${response.req.path} (${requestAllowed} requests available, 0 remaining). Wait ${resetAtMin} minutes before trying again.`);
+    if ('x-rate-limit-limit' in response.headers && 'x-rate-limit-reset' in response.headers) {
+      const requestAllowed = response.headers['x-rate-limit-limit'];
+      const resetAt = response.headers['x-rate-limit-reset'] * 1000 - (new Date().getTime());
+      const resetAtMin = Math.round(resetAt / 60 / 1000);
+      super(`You exceeded the rate limit for ${response.req.path} (${requestAllowed} requests available, 0 remaining). Wait ${resetAtMin} minutes before trying again.`);      
+    } else {
+      super(`You exceeded the rate limit for ${response.req.path}. Wait until rate limit resets and try again.`);
+    }
+
     this.resetAt = response.headers['x-rate-limit-reset'] * 1000;
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
