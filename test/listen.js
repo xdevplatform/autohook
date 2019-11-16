@@ -1,4 +1,4 @@
-const {Autohook, setWebhook, validateWebhook} = require('..');
+const {Autohook} = require('..');
 
 const qs = require('querystring');
 const request = require('request');
