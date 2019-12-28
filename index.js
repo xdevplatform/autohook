@@ -303,7 +303,7 @@ class Autohook extends EventEmitter {
       screen_name = screen_name || await verifyCredentials(auth);
     } catch (e) {
       throw e;
-      return;
+      return false;
     }
 
     const {subscriptions_count, provisioned_count} = await getSubscriptionsCount(auth);
@@ -314,7 +314,7 @@ class Autohook extends EventEmitter {
        'Please remove a subscription or upgrade your premium access at',
        'https://developer.twitter.com/apps.',
        ].join(' '));
-      return;
+      return false;
     }
 
     const requestConfig = {
@@ -327,11 +327,30 @@ class Autohook extends EventEmitter {
     if (response.statusCode === 204) {
       console.log(`Subscribed to ${screen_name}'s activities.`);
       updateSubscriptionCount(1);
+      return true;
     } else {
       throw new UserSubscriptionError(response);
-      return;
+      return false;
     }
-    
+  }
+
+  async unsubscribe(userId) {
+    const token = await bearerToken(this.auth);
+    const requestConfig = {
+      url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/subscriptions/${userId}.json`,
+      auth: { bearer: token },
+    };
+
+    const response = await del(requestConfig);
+
+    if (response.statusCode === 204) {
+      console.log(`Unsubscribed from ${userId}'s activities.`);
+      updateSubscriptionCount(-1);
+      return true;
+    } else {
+      throw new UserSubscriptionError(response);
+      return false;
+    }
   }
 }
 
