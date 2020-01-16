@@ -13,7 +13,6 @@ class TwitterError extends Error {
     super(`${message}` + (code ? ` (HTTP status: ${response.statusCode}, Twitter code: ${code})` : ''));
     this.name = this.constructor.name;
     this.code = code;
-    this.message = message;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -44,7 +43,6 @@ class RateLimitError extends Error {
     this.resetAt = response.headers['x-rate-limit-reset'] * 1000;
     this.name = this.constructor.name;
     this.code = code;
-    this.message = message;
     Error.captureStackTrace(this, this.constructor);
   }
 }
