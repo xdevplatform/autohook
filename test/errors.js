@@ -22,8 +22,12 @@ const response = {
 
 const assert = (e) => {
   console.log(`Trowing ${e.name}`);
-
-  console.log(e.message === `test error (HTTP status: 200, Twitter code: 1337)`);
+  if (e instanceof RateLimitError) {
+    console.log(e.message === 'You exceeded the rate limit for /example. Wait until rate limit resets and try again.');
+  } else {
+    console.log(e.message === `test error (HTTP status: 200, Twitter code: 1337)`);  
+  }
+  
   console.log(e.code === 1337);
 }
 try {
@@ -40,6 +44,12 @@ try {
 
 try {
   throw new WebhookURIError(response); 
+} catch(e) {
+  assert(e);
+}
+
+try {
+  throw new RateLimitError(response); 
 } catch(e) {
   assert(e);
 }
