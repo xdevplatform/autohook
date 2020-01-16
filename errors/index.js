@@ -4,6 +4,7 @@ class TwitterError extends Error {
     let message, code;
     if (!Array.isArray(body.errors)) {
       message = body || 'Unknown error';
+      code = -1;
     } else {
       message = body.errors[0].message;
       code = body.errors[0].code;
@@ -11,6 +12,8 @@ class TwitterError extends Error {
 
     super(`${message}` + (code ? ` (HTTP status: ${response.statusCode}, Twitter code: ${code})` : ''));
     this.name = this.constructor.name;
+    this.code = code;
+    this.message = message;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -23,6 +26,7 @@ class RateLimitError extends Error {
     let message, code;
     if (!Array.isArray(body.errors)) {
       message = body || 'Unknown error';
+      code = -1;
     } else {
       message = body.errors[0].message;
       code = body.errors[0].code;
@@ -39,6 +43,8 @@ class RateLimitError extends Error {
 
     this.resetAt = response.headers['x-rate-limit-reset'] * 1000;
     this.name = this.constructor.name;
+    this.code = code;
+    this.message = message;
     Error.captureStackTrace(this, this.constructor);
   }
 }
