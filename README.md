@@ -110,7 +110,7 @@ $ autohook \
   --token $TWITTER_ACCESS_TOKEN \
   --secret $TWITTER_ACCESS_TOKEN_SECRET \
   --consumer-key $TWITTER_CONSUMER_KEY \
-  --consumer-sercret $TWITTER_CONSUMER_SECRET \
+  --consumer-secret $TWITTER_CONSUMER_SECRET \
   --env $TWITTER_WEBHOOK_ENV
 ```
 
