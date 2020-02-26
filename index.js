@@ -9,6 +9,8 @@ const crypto = require('crypto');
 const path = require('path');
 const os = require('os');
 const EventEmitter = require('events');
+const URL = require('url').URL;
+
 const {
   TooManySubscriptionsError,
   UserSubscriptionError,

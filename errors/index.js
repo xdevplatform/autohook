@@ -46,7 +46,7 @@ class RateLimitError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 }
-class TooManySubscriptionsError extends Error {}
+class TooManySubscriptionsError extends TwitterError {}
 
 module.exports = { 
   TwitterError, 

@@ -44,9 +44,9 @@ const subscribe = async (auth) => {
   try {
     webhook.subscribe(auth);
   } catch(e) {
-    switch (e.constructor.name) {
-      case UserSubscriptionError.name:
-        console.error(e.getMessage());
+    switch (e.constructor) {
+      case UserSubscriptionError:
+        console.error(e.message);
         break;        
     }
 
@@ -64,15 +64,15 @@ const subscribe = async (auth) => {
   try {
     await webhook.start(argv.webhookUrl || null);  
   } catch(e) {
-    switch (e.constructor.name) {
-      case TooManyWebhooksError.name:
+    switch (e.constructor) {
+      case TooManyWebhooksError:
         console.error('Cannot add webhook: you have exceeded the number of webhooks available', 
           `to you for the '${argv.env || process.env.TWITTER_WEBHOOK_ENV}' environment.`,
           `Use 'autohook -r' to remove your existing webhooks or remove callbacks manually`,
           'using the Twitter API.');
         break;
       default:
-        console.error('Error:', e.getMessage()); 
+        console.error('Error:', e.message); 
         break;        
     }
 
