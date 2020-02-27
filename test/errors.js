@@ -3,6 +3,7 @@ const {
   UserSubscriptionError,
   WebhookURIError,
   RateLimitError,
+  TooManySubscriptionsError,
 } = require('../errors');
 const response = {
   statusCode: 200,
@@ -30,6 +31,7 @@ const assert = (e) => {
   
   console.log(e.code === 1337);
 }
+
 try {
   throw new TwitterError(response); 
 } catch(e) {
@@ -50,6 +52,12 @@ try {
 
 try {
   throw new RateLimitError(response); 
+} catch(e) {
+  assert(e);
+}
+
+try {
+  throw new TooManySubscriptionsError(response); 
 } catch(e) {
   assert(e);
 }

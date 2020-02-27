@@ -9,6 +9,7 @@ const readline = require('readline').createInterface({
 const util = require('util');
 const path = require('path');
 const os = require('os');
+const URL = require('url').URL;
 
 const get = util.promisify(request.get);
 const post = util.promisify(request.post);
