@@ -16,6 +16,7 @@ const {
   WebhookURIError,
   RateLimitError,
   AuthenticationError,
+  TwitterError,
 } = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
@@ -40,7 +41,7 @@ const getSubscriptionsCount = async (auth) => {
     },
   };
 
-  const response = await post(requestConfig);
+  const response = await get(requestConfig);
 
   switch (response.statusCode) {
     case 200:
@@ -52,7 +53,7 @@ const getSubscriptionsCount = async (auth) => {
       throw new TwitterError(response);
   }
 
-  _getSubscriptionsCount = JSON.parse(response.body);
+  _getSubscriptionsCount = response.body;
   return _getSubscriptionsCount;
 }
 
@@ -161,9 +162,7 @@ const setWebhook = async (webhookUrl, auth, env) => {
   }
 
   const response = await post(requestConfig);
-console.log(response);
-console.log(response.body.errors);
-process.exit(-1);
+
   switch (response.statusCode) {
     case 200:
     case 204:
@@ -196,7 +195,7 @@ const verifyCredentials = async (auth) => {
 
   const response = await get(requestConfig);
   if (response.statusCode === 200) {
-    return JSON.parse(response.body).screen_name;
+    return response.body.screen_name;
   } else {
     throw new UserSubscriptionError(response);
     return null;

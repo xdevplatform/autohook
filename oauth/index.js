@@ -12,8 +12,6 @@ const encode = (str) =>
 const nonce = (length = 16) => crypto.randomBytes(length).toString('base64');
 const timestamp = () => Math.floor(Date.now() / 1000).toString();
 
-// const nonce = () => Buffer.from('smVQEvqnjZJXFWLgi8Y1ypkvUcHanLuG').toString('base64');
-
 const parameters = (url, body, auth) => {
   let params = {};
 
@@ -24,7 +22,7 @@ const parameters = (url, body, auth) => {
 
   if (Object.prototype.toString.call(body) === '[object Object]') {
     for (const key of Object.keys(body)) {
-      params[key] = body[key];
+      params[key] = encode(body[key]);
     }    
   }
 
@@ -34,7 +32,6 @@ const parameters = (url, body, auth) => {
   params.oauth_timestamp = timestamp();
   params.oauth_signature_method = 'HMAC-SHA1';
   params.oauth_version = '1.0';
-
   return params;
 }
 
