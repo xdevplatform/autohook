@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-
-const util = require('util');
-const request = require('request');
 const ngrok = require('ngrok');
 const http = require('http');
 const url = require('url');
@@ -10,48 +7,24 @@ const path = require('path');
 const os = require('os');
 const EventEmitter = require('events');
 const URL = require('url').URL;
+const bearerToken = require('./bearer-token');
+const { get, post, del } = require('./client');
 
 const {
   TooManySubscriptionsError,
   UserSubscriptionError,
   WebhookURIError,
   RateLimitError,
+  AuthenticationError,
 } = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
-
-const get = util.promisify(request.get);
-const del = util.promisify(request.del);
-const post = util.promisify(request.post);
-const put = util.promisify(request.put);
 
 const emitter = new EventEmitter();
 
 const DEFAULT_PORT = 1337;
 const WEBHOOK_ROUTE = '/webhook';
 
-let _bearerToken = null;
-const bearerToken = async (auth) => {
-  if (_bearerToken) {
-    return _bearerToken;
-  }
-
-  const requestConfig = {
-    url: 'https://api.twitter.com/oauth2/token',
-    auth: {
-      user: auth.consumer_key,
-      pass: auth.consumer_secret,
-    },
-    form: {
-      grant_type: 'client_credentials',
-    },
-    ...this.headers,
-  };
-
-  const response = await post(requestConfig);
-  _bearerToken = JSON.parse(response.body).access_token;
-  return _bearerToken;
-}
 
 let _getSubscriptionsCount = null;
 const getSubscriptionsCount = async (auth) => {
@@ -62,11 +35,12 @@ const getSubscriptionsCount = async (auth) => {
   const token = await bearerToken(auth);
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/account_activity/all/subscriptions/count.json',
-    auth: { bearer: token },
-    ...this.headers,
+    options: { 
+      bearer: token 
+    },
   };
 
-  const response = await get(requestConfig);
+  const response = await post(requestConfig);
 
   switch (response.statusCode) {
     case 200:
@@ -94,30 +68,35 @@ const getWebhooks = async (auth, env) => {
   console.log('Getting webhooks…');
   const requestConfig = {
     url: `https://api.twitter.com/1.1/account_activity/all/${env}/webhooks.json`,
-    oauth: auth,
-    ...this.headers,
+    options: {
+      bearer: await bearerToken(auth),      
+    },
   };
 
-  const response = await get(requestConfig);
-  switch (response.statusCode) {
-    case 200:
-      break;
-    case 429:
-      throw new RateLimitError(response);
-      return [];
-    default:
-      throw new URIError([
-      `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
-      `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-      `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
-      return [];
-  }
-
   try {
-    return JSON.parse(response.body);
+    const response = await get(requestConfig);
+    switch (response.statusCode) {
+      case 200:
+        break;
+      case 400:
+      case 401:
+        throw new AuthenticationError(response);
+        return [];
+      case 429:
+        throw new RateLimitError(response);
+        return [];
+      default:
+        throw new URIError([
+        `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
+        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+        `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '));
+        return [];
+    }
+
+    return response.body;
   } catch (e) {
-    throw TypeError('Error while parsing the response from the Twitter API:', e.message);
-    return [];
+    console.error(e.message);
+    process.exit(-1);
   }
 }
 
@@ -126,17 +105,20 @@ const deleteWebhooks = async (webhooks, auth, env) => {
   for (const {id, url} of webhooks) {
     const requestConfig = {
       url: `https://api.twitter.com/1.1/account_activity/all/${env}/webhooks/${id}.json`,
-      oauth: auth,
-      ...this.headers,
+      options: {
+        oauth: auth,      
+      },
     }
 
     console.log(`Removing ${url}…`);
     const response = await del(requestConfig);
-  
     switch (response.statusCode) {
       case 200:
       case 204:
         return true;
+      case 401:
+        return new AuthenticationError(response);
+        return false;
       case 429:
         throw new RateLimitError(response);
         return false;
@@ -173,22 +155,24 @@ const setWebhook = async (webhookUrl, auth, env) => {
 
   const requestConfig = {
     url: endpoint.toString(),
-    oauth: auth,
-    ...this.headers,
+    options: {
+      oauth: auth,
+    },
   }
 
   const response = await post(requestConfig);
-
+console.log(response);
+console.log(response.body.errors);
+process.exit(-1);
   switch (response.statusCode) {
     case 200:
     case 204:
       break;
     case 400:
     case 403:
-     throw new WebhookURIError(response);
+     throw new AuthenticationError(response);
      return null;
     case 429:
-    console.log(response.headers);
       throw new RateLimitError(response);
       return null;
     default:
@@ -199,15 +183,15 @@ const setWebhook = async (webhookUrl, auth, env) => {
       return null;
   }
 
-  const body = JSON.parse(response.body);
-  return body;
+  return response.body;
 }
 
 const verifyCredentials = async (auth) => {
   const requestConfig = {
     url: 'https://api.twitter.com/1.1/account/verify_credentials.json',
-    oauth: auth,
-    ...this.headers,
+    options: {
+      oauth: auth,
+    },
   };
 
   const response = await get(requestConfig);
@@ -321,8 +305,9 @@ class Autohook extends EventEmitter {
 
     const requestConfig = {
       url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/subscriptions.json`,
-      oauth: auth,
-      ...this.headers,
+      options: {
+        oauth: auth,      
+      },
     };
 
     const response = await post(requestConfig);
@@ -340,7 +325,9 @@ class Autohook extends EventEmitter {
     const token = await bearerToken(this.auth);
     const requestConfig = {
       url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/subscriptions/${userId}.json`,
-      auth: { bearer: token },
+      options: {
+        bearer: token
+      },
     };
 
     const response = await del(requestConfig);

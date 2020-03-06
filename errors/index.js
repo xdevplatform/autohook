@@ -1,6 +1,6 @@
 class TwitterError extends Error {
   constructor(response) {
-    const body = JSON.parse(response.body);
+    const body = response.body;
     let message, code;
     if (!Array.isArray(body.errors)) {
       message = body || 'Unknown error';
@@ -21,7 +21,7 @@ class WebhookURIError extends TwitterError {}
 class UserSubscriptionError extends TwitterError {}
 class RateLimitError extends Error {
   constructor(response) {
-    const body = JSON.parse(response.body);
+    const body = response.body;
     let message, code;
     if (!Array.isArray(body.errors)) {
       message = body || 'Unknown error';
@@ -47,6 +47,8 @@ class RateLimitError extends Error {
   }
 }
 class TooManySubscriptionsError extends TwitterError {}
+class AuthenticationError extends TwitterError {}
+class BearerTokenError extends TwitterError {}
 
 module.exports = { 
   TwitterError, 
@@ -54,4 +56,6 @@ module.exports = {
   UserSubscriptionError, 
   TooManySubscriptionsError,
   RateLimitError,
+  AuthenticationError,
+  BearerTokenError,
 };
