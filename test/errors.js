@@ -27,42 +27,42 @@ const message = 'test error (HTTP status: 200, Twitter code: 1337)';
 const rateLimitMessage = 'You exceeded the rate limit for /example. Wait until rate limit resets and try again.';
 
 assert.throws(() => {
-  throw new TwitterError(response)
+  throw new TwitterError(response);
 }, {
   name: 'TwitterError',
   message: message,
 });
 
 assert.throws(() => {
-  throw new BearerTokenError(response)
+  throw new BearerTokenError(response);
 }, {
   name: 'BearerTokenError',
   message: message,
 });
 
 assert.throws(() => {
-  throw new UserSubscriptionError(response)
+  throw new UserSubscriptionError(response);
 }, {
   name: 'UserSubscriptionError',
   message: message,
 });
 
 assert.throws(() => {
-  throw new WebhookURIError(response)
+  throw new WebhookURIError(response);
 }, {
   name: 'WebhookURIError',
   message: message,
 });
 
 assert.throws(() => {
-  throw new TooManySubscriptionsError(response)
+  throw new TooManySubscriptionsError(response);
 }, {
   name: 'TooManySubscriptionsError',
   message: message,
 });
 
 assert.throws(() => {
-  throw new RateLimitError(response)
+  throw new RateLimitError(response);
 }, {
   name: 'RateLimitError',
   message: rateLimitMessage,

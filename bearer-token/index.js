@@ -19,7 +19,6 @@ const bearerToken = async (auth) => {
   const response = await post(requestConfig);
   if (response.statusCode !== 200) {
     throw new BearerTokenError(response);
-    return null;
   }
 
   _bearerToken = response.body.access_token;

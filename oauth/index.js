@@ -9,10 +9,18 @@ const encode = (str) =>
     .replace(/\)/g,'%29')
     .replace(/'/g,'%27');
 
-const nonce = (length = 16) => crypto.randomBytes(length).toString('base64');
-const timestamp = () => Math.floor(Date.now() / 1000).toString();
+const oAuthFunctions = {
+  nonceFn: null,
+  timestampFn: null, 
+};
 
-const parameters = (url, body, auth) => {
+const nonceFn = (length = 16) => crypto.randomBytes(length).toString('base64');
+const timestampFn = () => Math.floor(Date.now() / 1000).toString();
+
+const setNonceFn = (fn) => oAuthFunctions.nonceFn = fn;
+const setTimestampFn = (fn) => oAuthFunctions.timestampFn = fn;
+
+const parameters = (url, body = {}, auth) => {
   let params = {};
 
   const urlObject = new URL(url);
@@ -20,16 +28,18 @@ const parameters = (url, body, auth) => {
     params[key] = urlObject.searchParams.get(key);
   }
 
-  if (Object.prototype.toString.call(body) === '[object Object]') {
-    for (const key of Object.keys(body)) {
-      params[key] = encode(body[key]);
-    }    
+  if (Object.prototype.toString.call(body) !== '[object Object]') {
+    throw TypeError('OAuth parameters: body must be an object');
   }
+
+  for (const key of Object.keys(body)) {
+    params[key] = encode(body[key]);
+  }    
 
   params.oauth_consumer_key = auth.consumer_key;
   params.oauth_token = auth.token;
-  params.oauth_nonce = nonce();
-  params.oauth_timestamp = timestamp();
+  params.oauth_nonce = oAuthFunctions.nonceFn() || nonceFn();
+  params.oauth_timestamp = oAuthFunctions.timestampFn() || timestampFn();
   params.oauth_signature_method = 'HMAC-SHA1';
   params.oauth_version = '1.0';
   return params;
@@ -88,4 +98,4 @@ const oauth = (url, method, body, {oauth}) => {
   return signatureHeader;
 }
 
-module.exports = oauth;
+module.exports = {oauth, setNonceFn, setTimestampFn};
