@@ -1,4 +1,5 @@
 const { URL } = require('url');
+const qs = require('querystring');
 const crypto = require('crypto');
 
 const encode = (str) =>
@@ -10,17 +11,27 @@ const encode = (str) =>
     .replace(/'/g,'%27');
 
 const oAuthFunctions = {
-  nonceFn: null,
-  timestampFn: null, 
+  nonceFn: () => crypto.randomBytes(16).toString('base64'),
+  timestampFn: () => Math.floor(Date.now() / 1000).toString(),
 };
 
-const nonceFn = (length = 16) => crypto.randomBytes(length).toString('base64');
-const timestampFn = () => Math.floor(Date.now() / 1000).toString();
+const setNonceFn = (fn) => {
+  if (typeof fn !== 'function') {
+    throw new TypeError(`OAuth: setNonceFn expects a function`)
+  }
 
-const setNonceFn = (fn) => oAuthFunctions.nonceFn = fn;
-const setTimestampFn = (fn) => oAuthFunctions.timestampFn = fn;
+  oAuthFunctions.nonceFn = fn
+};
 
-const parameters = (url, body = {}, auth) => {
+const setTimestampFn = (fn) => {
+  if (typeof fn !== 'function') {
+    throw new TypeError(`OAuth: setTimestampFn expects a function`)
+  }
+
+  oAuthFunctions.timestampFn = fn;
+}
+
+const parameters = (url, auth, body = {}) => {
   let params = {};
 
   const urlObject = new URL(url);
@@ -28,18 +39,23 @@ const parameters = (url, body = {}, auth) => {
     params[key] = urlObject.searchParams.get(key);
   }
 
+  if (typeof body === 'string') {
+    body = qs.parse(body);
+  }
+
   if (Object.prototype.toString.call(body) !== '[object Object]') {
-    throw TypeError('OAuth parameters: body must be an object');
+    throw new TypeError('OAuth: body parameters must be string or object');
   }
 
   for (const key of Object.keys(body)) {
     params[key] = encode(body[key]);
-  }    
+  }
+
 
   params.oauth_consumer_key = auth.consumer_key;
   params.oauth_token = auth.token;
-  params.oauth_nonce = oAuthFunctions.nonceFn() || nonceFn();
-  params.oauth_timestamp = oAuthFunctions.timestampFn() || timestampFn();
+  params.oauth_nonce = oAuthFunctions.nonceFn();
+  params.oauth_timestamp = oAuthFunctions.timestampFn();
   params.oauth_signature_method = 'HMAC-SHA1';
   params.oauth_version = '1.0';
   return params;
@@ -88,8 +104,8 @@ const header = (url, auth, signature, params) => {
 
 }
 
-const oauth = (url, method, body, {oauth}) => {
-  const params = parameters(url, body, oauth);
+const oauth = (url, method, {oauth}, body) => {
+  const params = parameters(url, oauth, body);
   const paramString = parameterString(url, oauth, params);
   const baseString = signatureBaseString(url, method, paramString);
   const signingKey = createSigningKey(oauth);

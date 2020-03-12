@@ -20,16 +20,28 @@ const baseUrl = new URL('https://api.twitter.com/1.1/account/verify_credentials.
 oauthInstance.setNonceFn(() => 'GXjhffMbAMz2qblDzzgYbP4ZkfPp7RGmhry5Upatw');
 oauthInstance.setTimestampFn(() => '1583967563');
 assert.throws(() => {
-  // non-object body throws TypeError
-  oauthInstance.oauth(baseUrl, 'GET', '', oAuthConfig);
+  // non-object and non string body throws TypeError
+  oauthInstance.oauth(baseUrl, 'GET', oAuthConfig, () => {});
 }, {
   name: 'TypeError',
 });
-assert.equal(oauthInstance.oauth(baseUrl, 'GET', {}, oAuthConfig), signatures.baseUrl);
+assert.equal(oauthInstance.oauth(baseUrl, 'GET', oAuthConfig), signatures.baseUrl);
+assert.equal(oauthInstance.oauth(baseUrl, 'GET', oAuthConfig, {}), signatures.baseUrl);
+assert.equal(oauthInstance.oauth(baseUrl, 'GET', oAuthConfig, ''), signatures.baseUrl);
 
 const urlWithParams = new URL('https://api.twitter.com/1.1/account/verify_credentials.json')
 urlWithParams.searchParams.append('param_test', '1');
 urlWithParams.searchParams.append('example', '1');
 oauthInstance.setNonceFn(() => 'xaCqEY8Ed9vnfFvZJsu8AjSF1');
 oauthInstance.setTimestampFn(() => '1583967750');
-assert.equal(oauthInstance.oauth(urlWithParams, 'GET', {}, oAuthConfig), signatures.urlWithParams);
+assert.equal(oauthInstance.oauth(urlWithParams, 'GET', oAuthConfig), signatures.urlWithParams);
+
+const urlWithBodyParams = new URL('https://api.twitter.com/1.1/account/verify_credentials.json');
+const bodyParams = {
+  param_test: '1',
+  example: '1'
+};
+
+assert.equal(oauthInstance.oauth(urlWithParams, 'GET', oAuthConfig, bodyParams), signatures.urlWithParams);
+const bodyParamsString = 'param_test=1&example=1';
+assert.equal(oauthInstance.oauth(urlWithParams, 'GET', oAuthConfig, bodyParamsString), signatures.urlWithParams);

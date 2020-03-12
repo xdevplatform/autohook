@@ -6,14 +6,14 @@ const qs = require('qs');
 const { oauth } = require('../oauth');
 needle.defaults({user_agent: `${package.name}/${package.version}`})
 
-const auth = (method, url, body, options) => {
+const auth = (method, url, options, body) => {
   if (Object.prototype.toString.call(options) !== '[object Object]') {
     return {};
   }
 
   options.headers = options.headers || {};
   if (options.oauth) {
-    options.headers.authorization = oauth(url, method, body, options);
+    options.headers.authorization = oauth(url, method, options, body);
   } else if (options.bearer) {
     options.headers.authorization = `Bearer ${options.bearer}`;
   }
@@ -23,25 +23,25 @@ const auth = (method, url, body, options) => {
 
 const get = ({url, ...options}) => {
   method = 'GET';
-  options.options = auth(method, url, {}, options.options);
+  options.options = auth(method, url, options.options);
   return needle(method, url, null, options.options);
 }
 
 const del = ({url, ...options}) => {
   method = 'DELETE';
-  options.options = auth(method, url, {}, options.options);
+  options.options = auth(method, url, options.options);
   return needle(method, url, null, options.options);
 }
 
-const post = ({url, body = null, ...options}) => {
+const post = ({url, body = {}, ...options}) => {
   method = 'POST';
-  options.options = auth(method, url, body, options.options);
+  options.options = auth(method, url, options.options, body);
   return needle(method, url, body, options.options);
 }
 
-const put = ({url, body = null, ...options}) => {
+const put = ({url, body = {}, ...options}) => {
   method = 'PUT';
-  options.options = auth(method, url, body, options.options);
+  options.options = auth(method, url, options.options, body);
   return needle(method, url, body, options.options);
 }
 
