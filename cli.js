@@ -44,14 +44,8 @@ const subscribe = async (auth) => {
   try {
     webhook.subscribe(auth);
   } catch(e) {
-    switch (e.constructor) {
-      case UserSubscriptionError:
-        console.error(e.message);
-        break;        
-    }
-
+    console.error(e.message);
     process.exit(-1);
-
   }
   
 }
