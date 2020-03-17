@@ -53,7 +53,3 @@ const oauth = {
   assert.strictEqual(unsubscriptionStatus, true);
   scope.done();
 })();
-
-// Some success
-
-// Rate limit

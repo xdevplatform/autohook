@@ -13,7 +13,7 @@ const auth = (method, url, options, body) => {
 
   options.headers = options.headers || {};
   if (options.oauth) {
-    options.headers.authorization = oauth(url, method, options, body);
+    options.headers.authorization = oauth(url, method, options, !!options.json ? {} : body);
   } else if (options.bearer) {
     options.headers.authorization = `Bearer ${options.bearer}`;
   }

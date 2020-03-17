@@ -20,7 +20,7 @@ const setNonceFn = (fn) => {
     throw new TypeError(`OAuth: setNonceFn expects a function`)
   }
 
-  oAuthFunctions.nonceFn = fn
+  oAuthFunctions.nonceFn = fn;
 };
 
 const setTimestampFn = (fn) => {
@@ -47,10 +47,7 @@ const parameters = (url, auth, body = {}) => {
     throw new TypeError('OAuth: body parameters must be string or object');
   }
 
-  for (const key of Object.keys(body)) {
-    params[key] = encode(body[key]);
-  }
-
+  params = Object.assign(params, body);
 
   params.oauth_consumer_key = auth.consumer_key;
   params.oauth_token = auth.token;
@@ -58,6 +55,7 @@ const parameters = (url, auth, body = {}) => {
   params.oauth_timestamp = oAuthFunctions.timestampFn();
   params.oauth_signature_method = 'HMAC-SHA1';
   params.oauth_version = '1.0';
+
   return params;
 }
 
@@ -69,8 +67,7 @@ const parameterString = (url, auth, params) => {
     sortedParams.push(`${key}=${encode(params[key])}`);
   }
 
-  return sortedParams.join('&');
-  
+  return sortedParams.join('&');  
 }
 
 const hmacSha1Signature = (baseString, signingKey) => 
