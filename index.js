@@ -60,38 +60,6 @@ const updateSubscriptionCount = increment => {
   _getSubscriptionsCount.subscriptions_count += increment;
 }
 
-const getWebhooks = async (auth, env) => {
-  console.log('Getting webhooks…');
-
-  let token = null;
-  try {
-    token = await bearerToken(auth);
-  } catch (e) {
-    throw e;
-  }
-
-  const requestConfig = {
-    url: `https://api.twitter.com/1.1/account_activity/all/${env}/webhooks.json`,
-    options: {
-      bearer: token,
-    },
-  };
-
-  const response = await get(requestConfig);
-  const error = tryError(
-    response,
-    (response) => new URIError(response, [
-      `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
-      `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-      `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' ')));
-
-  if (error) {
-    throw error;
-  }
-
-  return response.body;
-}
-
 const deleteWebhooks = async (webhooks, auth, env) => {
   console.log('Removing webhooks…');
   for (const {id, url} of webhooks) {
@@ -118,42 +86,6 @@ const deleteWebhooks = async (webhooks, auth, env) => {
 const validateWebhook = (token, auth) => {
   const responseToken = crypto.createHmac('sha256', auth.consumer_secret).update(token).digest('base64');
   return {response_token: `sha256=${responseToken}`};
-}
-
-const setWebhook = async (webhookUrl, auth, env) => {
-  const parsedUrl = url.parse(webhookUrl);
-  if (parsedUrl.protocol === null || parsedUrl.host === 'null') {
-    throw new TypeError(`${webhookUrl} is not a valid URL. Please provide a valid URL and try again.`);
-  } else if (parsedUrl.protocol !== 'https:') {
-    throw new TypeError(`${webhookUrl} is not a valid URL. Your webhook must be HTTPS.`);
-  }
-
-  console.log(`Registering ${webhookUrl} as a new webhook…`);
-  const endpoint = new URL(`https://api.twitter.com/1.1/account_activity/all/${env}/webhooks.json`);
-  endpoint.searchParams.append('url', webhookUrl);
-
-  const requestConfig = {
-    url: endpoint.toString(),
-    options: {
-      oauth: auth,
-    },
-  }
-
-  const response = await post(requestConfig);
-
-  const error = tryError(
-    response,
-    (response) => new URIError(response, [
-      `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
-      `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-      `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '))
-  );
-
-  if (error) {
-    throw error;
-  }
-  
-  return response.body;
 }
 
 const verifyCredentials = async (auth) => {
@@ -229,8 +161,80 @@ class Autohook extends EventEmitter {
     }).listen(this.port);
   }
 
+  async setWebhook(webhookUrl) {
+    const parsedUrl = url.parse(webhookUrl);
+    if (parsedUrl.protocol === null || parsedUrl.host === 'null') {
+      throw new TypeError(`${webhookUrl} is not a valid URL. Please provide a valid URL and try again.`);
+    } else if (parsedUrl.protocol !== 'https:') {
+      throw new TypeError(`${webhookUrl} is not a valid URL. Your webhook must be HTTPS.`);
+    }
+  
+    console.log(`Registering ${webhookUrl} as a new webhook…`);
+    const endpoint = new URL(`https://api.twitter.com/1.1/account_activity/all/${this.env}/webhooks.json`);
+    endpoint.searchParams.append('url', webhookUrl);
+  
+    const requestConfig = {
+      url: endpoint.toString(),
+      options: {
+        oauth: this.auth,
+      },
+    }
+  
+    const response = await post(requestConfig);
+  
+    const error = tryError(
+      response,
+      (response) => new URIError(response, [
+        `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
+        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+        `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '))
+    );
+  
+    if (error) {
+      throw error;
+    }
+    
+    return response.body;
+  }
+
+  async getWebhooks() {
+    console.log('Getting webhooks…');
+  
+    let token = null;
+    try {
+      token = await bearerToken(this.auth);
+    } catch (e) {
+      throw e;
+    }
+  
+    const requestConfig = {
+      url: `https://api.twitter.com/1.1/account_activity/all/${this.env}/webhooks.json`,
+      options: {
+        bearer: token,
+      },
+    };
+  
+    const response = await get(requestConfig);
+    const error = tryError(
+      response,
+      (response) => new URIError(response, [
+        `Cannot get webhooks. Please check that '${this.env}' is a valid environment defined in your`,
+        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+        `your OAuth credentials are valid and can access '${this.env}'. (HTTP status: ${response.statusCode})`].join(' ')));
+  
+    if (error) {
+      throw error;
+    }
+  
+    return response.body;
+  }
+
+  async removeWebhook(webhook) {
+    await deleteWebhooks([webhook], this.auth, this.env);
+  }
+
   async removeWebhooks() {
-    const webhooks = await getWebhooks(this.auth, this.env);
+    const webhooks = await this.getWebhooks(this.auth, this.env);
     await deleteWebhooks(webhooks, this.auth, this.env);
   }
 
@@ -243,7 +247,7 @@ class Autohook extends EventEmitter {
     }
     
     try {
-      const webhook = await setWebhook(webhookUrl, this.auth, this.env);  
+      const webhook = await this.setWebhook(webhookUrl, this.auth, this.env);  
       console.log('Webhook created.');
     } catch(e) {
       throw e;
