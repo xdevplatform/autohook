@@ -56,7 +56,7 @@ const subscribe = async (auth) => {
   }
 
   try {
-    await webhook.start(argv.webhookUrl || null);  
+    await webhook.start(argv.url || null);  
   } catch(e) {
     switch (e.constructor) {
       case TooManyWebhooksError:
