@@ -1,4 +1,4 @@
-const {Autohook, validateWebhook} = require('..');
+const {Autohook, validateWebhook, validateSignature} = require('..');
 
 const url = require('url');
 const ngrok = require('ngrok');
@@ -14,6 +14,15 @@ const startServer = (port, auth) => http.createServer((req, res) => {
   }
 
   if (route.query.crc_token) {
+    try {
+      if (!validateSignature(req.headers, auth, url.parse(req.url).query)) {
+        console.error('Cannot validate webhook signature');
+        return;
+      };
+    } catch (e) {
+      console.error(e);
+    }
+
     const crc = validateWebhook(route.query.crc_token, auth, res);
     res.writeHead(200, {'content-type': 'application/json'});
     res.end(JSON.stringify(crc));
@@ -25,6 +34,15 @@ const startServer = (port, auth) => http.createServer((req, res) => {
       body += chunk.toString();
     });
     req.on('end', () => {
+      try {
+        if (!validateSignature(req.headers, auth, body)) {
+          console.error('Cannot validate webhook signature');
+          return;
+        };
+      } catch (e) {
+        console.error(e);
+      }
+
       console.log('Event received:', body);
       res.writeHead(200);
       res.end();

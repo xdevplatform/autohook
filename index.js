@@ -14,18 +14,13 @@ const {
   TooManySubscriptionsError,
   UserSubscriptionError,
   WebhookURIError,
-  RateLimitError,
-  AuthenticationError,
   tryError,
 } = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
 
-const emitter = new EventEmitter();
-
 const DEFAULT_PORT = 1337;
 const WEBHOOK_ROUTE = '/webhook';
-
 
 let _getSubscriptionsCount = null;
 const getSubscriptionsCount = async (auth) => {
@@ -72,20 +67,29 @@ const deleteWebhooks = async (webhooks, auth, env) => {
 
     console.log(`Removing ${url}…`);
     const response = await del(requestConfig);
-    const error = tryError(
-      response,
-      (response) => new URIError(response, [
-        `Cannot remove ${url}. Please make sure it belongs to '${env}', and that '${env}' is a`,
-        `valid environment defined in your Developer dashboard at`,
-        `https://developer.twitter.com/en/account/environments. Also check that your OAuth`,
-        `credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`,
-      ].join(' ')));
   }
 }
 
 const validateWebhook = (token, auth) => {
   const responseToken = crypto.createHmac('sha256', auth.consumer_secret).update(token).digest('base64');
   return {response_token: `sha256=${responseToken}`};
+}
+
+const validateSignature = (header, auth, body) => {
+  const signatureHeaderName = 'x-twitter-webhooks-signature';
+
+  if (typeof header[signatureHeaderName] === 'undefined') {
+    throw new TypeError(`validateSignature: header ${signatureHeaderName} not found`);
+  }
+
+  const signature = 'sha256=' + crypto
+        .createHmac('sha256', auth.consumer_secret)
+        .update(body)
+        .digest('base64');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(header[signatureHeaderName]),
+    Buffer.from(signature));
 }
 
 const verifyCredentials = async (auth) => {
@@ -142,6 +146,14 @@ class Autohook extends EventEmitter {
       }
 
       if (route.query.crc_token) {
+        try {
+          if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
+            console.error('Cannot validate webhook signature');
+            return;
+          };
+        } catch (e) {
+          console.error(e);
+        }
         const crc = validateWebhook(route.query.crc_token, this.auth);
         res.writeHead(200, {'content-type': 'application/json'});
         res.end(JSON.stringify(crc));
@@ -153,6 +165,14 @@ class Autohook extends EventEmitter {
           body += chunk.toString();
         });
         req.on('end', () => {
+          try {
+            if (!validateSignature(req.headers, this.auth, body)) {
+              console.error('Cannot validate webhook signature');
+              return;
+            };
+          } catch (e) {
+            console.error(e);
+          }
           this.emit('event', JSON.parse(body), req);
           res.writeHead(200);
           res.end();
@@ -247,7 +267,7 @@ class Autohook extends EventEmitter {
     }
     
     try {
-      const webhook = await this.setWebhook(webhookUrl, this.auth, this.env);  
+      await this.setWebhook(webhookUrl);
       console.log('Webhook created.');
     } catch(e) {
       throw e;
@@ -290,7 +310,7 @@ class Autohook extends EventEmitter {
       response,
       (response) => new UserSubscriptionError(response));
     
-      if (error) {
+    if (error) {
       throw error;
     }
 
@@ -323,4 +343,11 @@ class Autohook extends EventEmitter {
   }
 }
 
-module.exports = {Autohook, WebhookURIError, UserSubscriptionError, TooManySubscriptionsError, validateWebhook};
+module.exports = {
+  Autohook, 
+  WebhookURIError, 
+  UserSubscriptionError, 
+  TooManySubscriptionsError, 
+  validateWebhook,
+  validateSignature,
+};
