@@ -2,7 +2,6 @@ const needle = require('needle');
 const crypto = require('crypto');
 const package = require('../package.json');
 const { URL, URLSearchParams } = require('url');
-const qs = require('qs');
 const { oauth } = require('../oauth');
 needle.defaults({user_agent: `${package.name}/${package.version}`})
 
