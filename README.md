@@ -66,7 +66,7 @@ TWITTER_CONSUMER_SECRET= # https://developer.twitter.com/en/apps ➡️ Your app
 TWITTER_ACCESS_TOKEN= # https://developer.twitter.com/en/apps ➡️ Your app ID ➡️ Details ➡️ Access token
 TWITTER_ACCESS_TOKEN_SECRET= # https://developer.twitter.com/en/apps ➡️ Your app ID ➡️ Details ➡️ Access token secret
 TWITTER_WEBHOOK_ENV= # https://developer.twitter.com/en/account/environments ➡️ One of 'Dev environment label' or 'Prod environment label'
-NGROK_AUTH_TOKEN= # https://ngrok.com/ - Create a free account to get your auth token for stable tunnels
+NGROK_AUTH_TOKEN= # https://ngrok.com/ - (optional) Create a free account to get your auth token for stable tunnels
 ```
 
 Autohook will pick up these details automatically, so you won't have to specify anything in code or via CLI.
@@ -83,7 +83,7 @@ export TWITTER_CONSUMER_SECRET= # https://developer.twitter.com/en/apps ➡️ Y
 export TWITTER_ACCESS_TOKEN= # https://developer.twitter.com/en/apps ➡️ Your app ID ➡️ Details ➡️ Access token
 export TWITTER_ACCESS_TOKEN_SECRET= # https://developer.twitter.com/en/apps ➡️ Your app ID ➡️ Details ➡️ Access token secret
 export TWITTER_WEBHOOK_ENV= # https://developer.twitter.com/en/account/environments ➡️ One of 'Dev environment label' or 'Prod environment label'
-export NGROK_AUTH_TOKEN= # https://ngrok.com/ - Create a free account to get your auth token for stable tunnels
+export NGROK_AUTH_TOKEN= # https://ngrok.com/ - (optional) Create a free account to get your auth token for stable tunnels
 
 # To other services, e.g. Heroku
 heroku config:set TWITTER_CONSUMER_KEY=value TWITTER_CONSUMER_SECRET=value TWITTER_ACCESS_TOKEN=value TWITTER_ACCESS_TOKEN_SECRET=value TWITTER_WEBHOOK_ENV=value NGROK_AUTH_TOKEN=value
@@ -100,7 +100,7 @@ new Autohook({
   token_secret: 'value',
   consumer_key: 'value',
   consumer_secret: 'value',
-  ngrok_secret:'value'
+  ngrok_secret: 'value', // optional
   env: 'env',
   port: 1337
 });
@@ -115,7 +115,7 @@ $ autohook \
   --consumer-key $TWITTER_CONSUMER_KEY \
   --consumer-secret $TWITTER_CONSUMER_SECRET \
   --env $TWITTER_WEBHOOK_ENV \
-  --ngrok-secret $NGROK_AUTH_TOKEN \
+  --ngrok-secret $NGROK_AUTH_TOKEN # optional
 ```
 
 ## Install
