@@ -124,7 +124,7 @@ class Autohook extends EventEmitter {
     headers = [],
   } = {}) {
 
-    Object.entries({token, token_secret, consumer_key, consumer_secret,ngrok_secret, env, port}).map(el => {
+    Object.entries({token, token_secret, consumer_key, consumer_secret, ngrok_secret, env, port}).map(el => {
       const [key, value] = el;
       if (!value) {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
@@ -132,7 +132,8 @@ class Autohook extends EventEmitter {
     });
 
     super();
-    this.auth = {token, token_secret, consumer_key, consumer_secret ,ngrok_secret};
+    this.auth = {token, token_secret, consumer_key, consumer_secret};
+    this.ngrokSecret = ngrok_secret;
     this.env = env;
     this.port = port;
     this.headers = headers;
@@ -263,8 +264,8 @@ class Autohook extends EventEmitter {
     
     if (!webhookUrl) {
       this.startServer();
-      if(this.auth.ngrok_secret){
-        await ngrok.authtoken(token)
+      if (this.ngrokSecret) {
+        await ngrok.authtoken(this.ngrokSecret);
       }
       const url = await ngrok.connect(this.port);
       webhookUrl = `${url}${WEBHOOK_ROUTE}`;      
