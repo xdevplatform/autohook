@@ -52,7 +52,10 @@ const startServer = (port, auth) => http.createServer((req, res) => {
 
 (async () => {
   try {
-
+    const NGROK_AUTH_TOKEN = process.env.NGROK_AUTH_TOKEN;
+    if (NGROK_AUTH_TOKEN) {
+      await ngrok.authtoken(process.env.NGROK_AUTH_TOKEN);
+    }
     const url = await ngrok.connect(PORT);
     const webhookURL = `${url}/standalone-server/webhook`;
 
