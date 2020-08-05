@@ -1,6 +1,6 @@
 {
   "name": "twitter-autohook",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Automatically setup and serve webhooks for the Twitter Account Activity API",
   "repository": {
     "type": "git",
@@ -23,5 +23,8 @@
     "needle": "^2.3.3",
     "ngrok": "^3.2.1",
     "nock": "^12.0.2"
+  },
+  "devDependencies": {
+    "eslint": "^7.6.0"
   }
 }
