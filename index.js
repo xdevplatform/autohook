@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process, Buffer */
 const ngrok = require('ngrok');
 const http = require('http');
 const url = require('url');
@@ -45,15 +46,15 @@ const getSubscriptionsCount = async (auth) => {
 
   _getSubscriptionsCount = response.body;
   return _getSubscriptionsCount;
-}
+};
 
-const updateSubscriptionCount = increment => {
+const updateSubscriptionCount = (increment) => {
   if (!_getSubscriptionsCount) {
     return;
   }
 
   _getSubscriptionsCount.subscriptions_count += increment;
-}
+};
 
 const deleteWebhooks = async (webhooks, auth, env) => {
   console.log('Removing webhooks…');
@@ -63,17 +64,17 @@ const deleteWebhooks = async (webhooks, auth, env) => {
       options: {
         oauth: auth,      
       },
-    }
+    };
 
     console.log(`Removing ${url}…`);
-    const response = await del(requestConfig);
+    await del(requestConfig);
   }
-}
+};
 
 const validateWebhook = (token, auth) => {
   const responseToken = crypto.createHmac('sha256', auth.consumer_secret).update(token).digest('base64');
   return {response_token: `sha256=${responseToken}`};
-}
+};
 
 const validateSignature = (header, auth, body) => {
   const signatureHeaderName = 'x-twitter-webhooks-signature';
@@ -90,7 +91,7 @@ const validateSignature = (header, auth, body) => {
   return crypto.timingSafeEqual(
     Buffer.from(header[signatureHeaderName]),
     Buffer.from(signature));
-}
+};
 
 const verifyCredentials = async (auth) => {
   const requestConfig = {
@@ -110,7 +111,7 @@ const verifyCredentials = async (auth) => {
   }
 
   return response.body.screen_name;
-}
+};
 
 class Autohook extends EventEmitter {
   constructor({
@@ -124,7 +125,7 @@ class Autohook extends EventEmitter {
     headers = [],
   } = {}) {
 
-    Object.entries({token, token_secret, consumer_key, consumer_secret, ngrok_secret, env, port}).map(el => {
+    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port}).map((el) => {
       const [key, value] = el;
       if (!value) {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
@@ -152,7 +153,7 @@ class Autohook extends EventEmitter {
           if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
             console.error('Cannot validate webhook signature');
             return;
-          };
+          }
         } catch (e) {
           console.error(e);
         }
@@ -163,7 +164,7 @@ class Autohook extends EventEmitter {
 
       if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
         let body = '';
-        req.on('data', chunk => {
+        req.on('data', (chunk) => {
           body += chunk.toString();
         });
         req.on('end', () => {
@@ -171,7 +172,7 @@ class Autohook extends EventEmitter {
             if (!validateSignature(req.headers, this.auth, body)) {
               console.error('Cannot validate webhook signature');
               return;
-            };
+            }
           } catch (e) {
             console.error(e);
           }
@@ -200,16 +201,16 @@ class Autohook extends EventEmitter {
       options: {
         oauth: this.auth,
       },
-    }
+    };
   
     const response = await post(requestConfig);
   
     const error = tryError(
       response,
       (response) => new URIError(response, [
-        `Cannot get webhooks. Please check that '${env}' is a valid environment defined in your`,
-        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
-        `your OAuth credentials are valid and can access '${env}'. (HTTP status: ${response.statusCode})`].join(' '))
+        `Cannot get webhooks. Please check that '${this.env}' is a valid environment defined in your`,
+        'Developer dashboard at https://developer.twitter.com/en/account/environments, and that',
+        `your OAuth credentials are valid and can access '${this.env}'. (HTTP status: ${response.statusCode})`].join(' '))
     );
   
     if (error) {
@@ -226,6 +227,7 @@ class Autohook extends EventEmitter {
     try {
       token = await bearerToken(this.auth);
     } catch (e) {
+      token = null;
       throw e;
     }
   
@@ -241,7 +243,7 @@ class Autohook extends EventEmitter {
       response,
       (response) => new URIError(response, [
         `Cannot get webhooks. Please check that '${this.env}' is a valid environment defined in your`,
-        `Developer dashboard at https://developer.twitter.com/en/account/environments, and that`,
+        'Developer dashboard at https://developer.twitter.com/en/account/environments, and that',
         `your OAuth credentials are valid and can access '${this.env}'. (HTTP status: ${response.statusCode})`].join(' ')));
   
     if (error) {
@@ -274,7 +276,8 @@ class Autohook extends EventEmitter {
     try {
       await this.setWebhook(webhookUrl);
       console.log('Webhook created.');
-    } catch(e) {
+    } catch (e) {
+      console.log('Cannot create webhook:', e);
       throw e;
     }    
   }
@@ -290,6 +293,7 @@ class Autohook extends EventEmitter {
     try {
       screen_name = screen_name || await verifyCredentials(auth);
     } catch (e) {
+      screen_name = null;
       throw e;
     }
 
