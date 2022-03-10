@@ -160,6 +160,8 @@ class Autohook extends EventEmitter {
     //   console.log(address);
     // });
     this.server = http.createServer((req, res) => {
+      console.log(req);
+      console.log(res);
       const route = url.parse(req.url, true);
 
       if (!route.pathname) {
