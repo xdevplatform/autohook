@@ -19,7 +19,7 @@ const startServer = (port, auth) => http.createServer((req, res) => {
       if (!validateSignature(req.headers, auth, url.parse(req.url).query)) {
         console.error('Cannot validate webhook signature');
         return;
-      }
+      };
     } catch (e) {
       console.error(e);
     }
@@ -59,7 +59,6 @@ const startServer = (port, auth) => http.createServer((req, res) => {
     }
     // const url = await ngrok.connect(PORT);
     // const webhookURL = `${url}/standalone-server/webhook`;
-    const webhookURL = `${process.env.TWITTER_WEBHOOK_SERVER_URL}`;
 
     const config = {
       token: process.env.TWITTER_ACCESS_TOKEN,
@@ -69,15 +68,18 @@ const startServer = (port, auth) => http.createServer((req, res) => {
       env: process.env.TWITTER_WEBHOOK_ENV,
     };
 
-    // const server = startServer(PORT, config);
-    
     const webhook = new Autohook(config);
     await webhook.removeWebhooks();
-    await webhook.startServer();
-    await webhook.start(webhookURL);
+    await webhook.startFastifyServer();
+    await webhook.setNGrokWebhook();
     await webhook.subscribe({
       oauth_token: config.token,
       oauth_token_secret: config.token_secret,
+    });
+    
+    webhook.on('event', (request, reply) => {
+      console.log(request);
+      console.log(reply);
     });
     
   } catch(e) {
