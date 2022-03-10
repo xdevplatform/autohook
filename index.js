@@ -130,7 +130,7 @@ class Autohook extends EventEmitter {
     headers = [],
   } = {}) {
 
-    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port, webhookUrl}).map((el) => {
+    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port}).map((el) => {
       const [key, value] = el;
       if (!value) {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
