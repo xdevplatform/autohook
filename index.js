@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /* global process, Buffer */
 const ngrok = require('ngrok');
-const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
 const path = require('path');
@@ -19,6 +18,10 @@ const {
 } = require('./errors');
 
 require('dotenv').config({path: path.resolve(os.homedir(), '.env.twitter')});
+
+const fastify = require('fastify')({
+  logger: process.env.FASTIFY_LOGGER_FLAG,
+});
 
 const DEFAULT_PORT = 1337;
 const WEBHOOK_ROUTE = '/webhook';
@@ -120,12 +123,13 @@ class Autohook extends EventEmitter {
     consumer_key = (process.env.TWITTER_CONSUMER_KEY || '').trim(),
     consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
     ngrok_secret = (process.env.NGROK_AUTH_TOKEN || '').trim(),
-    env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
+    env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(), 
+    webhookUrl = (process.env.TWITTER_WEBHOOK_SERVER_URL || '').trim(),
     port = process.env.PORT || DEFAULT_PORT,
     headers = [],
   } = {}) {
 
-    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port}).map((el) => {
+    Object.entries({token, token_secret, consumer_key, consumer_secret, env, port, webhookUrl}).map((el) => {
       const [key, value] = el;
       if (!value) {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
@@ -136,52 +140,67 @@ class Autohook extends EventEmitter {
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.ngrokSecret = ngrok_secret;
     this.env = env;
+    this.webhookUrl = webhookUrl;
     this.port = port;
     this.headers = headers;
   }
 
   startServer() {
-    this.server = http.createServer((req, res) => {
-      const route = url.parse(req.url, true);
-
-      if (!route.pathname) {
+    console.log('calling webhook.startServer()');
+    fastify.get('/')
+    
+    this.server = fastify.listen({
+      port: this.port,
+    }, (error, address) => {
+      console.log('checking for errors');
+      if (error) {
+        console.log('found error');
+        fastify.log(error);
         return;
       }
-
-      if (route.query.crc_token) {
-        try {
-          if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
-            console.error('Cannot validate webhook signature');
-            return;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-        const crc = validateWebhook(route.query.crc_token, this.auth);
-        res.writeHead(200, {'content-type': 'application/json'});
-        res.end(JSON.stringify(crc));
-      }
-
-      if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
-        let body = '';
-        req.on('data', (chunk) => {
-          body += chunk.toString();
-        });
-        req.on('end', () => {
-          try {
-            if (!validateSignature(req.headers, this.auth, body)) {
-              console.error('Cannot validate webhook signature');
-              return;
-            }
-          } catch (e) {
-            console.error(e);
-          }
-          this.emit('event', JSON.parse(body), req);
-          res.writeHead(200);
-          res.end();
-        });
-      }
-    }).listen(this.port);
+      console.log(address);
+    });
+    // this.server = http.createServer((req, res) => {
+    //   const route = url.parse(req.url, true);
+    //
+    //   if (!route.pathname) {
+    //     return;
+    //   }
+    //
+    //   if (route.query.crc_token) {
+    //     try {
+    //       if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
+    //         console.error('Cannot validate webhook signature');
+    //         return;
+    //       }
+    //     } catch (e) {
+    //       console.error(e);
+    //     }
+    //     const crc = validateWebhook(route.query.crc_token, this.auth);
+    //     res.writeHead(200, {'content-type': 'application/json'});
+    //     res.end(JSON.stringify(crc));
+    //   }
+    //
+    //   if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
+    //     let body = '';
+    //     req.on('data', (chunk) => {
+    //       body += chunk.toString();
+    //     });
+    //     req.on('end', () => {
+    //       try {
+    //         if (!validateSignature(req.headers, this.auth, body)) {
+    //           console.error('Cannot validate webhook signature');
+    //           return;
+    //         }
+    //       } catch (e) {
+    //         console.error(e);
+    //       }
+    //       this.emit('event', JSON.parse(body), req);
+    //       res.writeHead(200);
+    //       res.end();
+    //     });
+    //   }
+    // }).listen(this.port);
   }
 
   async setWebhook(webhookUrl) {
@@ -266,11 +285,15 @@ class Autohook extends EventEmitter {
     
     if (!webhookUrl) {
       this.startServer();
-      if (this.ngrokSecret) {
-        await ngrok.authtoken(this.ngrokSecret);
+      if (this.webhookUrl) {
+        webhookUrl = this.webhookUrl;
+      } else {
+        if (this.ngrokSecret) {
+          await ngrok.authtoken(this.ngrokSecret);
+        }
+        const url = await ngrok.connect(this.port);
+        webhookUrl = `${url}${WEBHOOK_ROUTE}`;
       }
-      const url = await ngrok.connect(this.port);
-      webhookUrl = `${url}${WEBHOOK_ROUTE}`;      
     }
     
     try {

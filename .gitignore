@@ -61,6 +61,8 @@ typings/
 .DS_Store
 
 # Project files
-.env
 config.json
 package-lock.json
+
+# IntelliJ Idea
+.idea
