@@ -69,7 +69,7 @@ const startServer = (port, auth) => http.createServer((req, res) => {
       env: process.env.TWITTER_WEBHOOK_ENV,
     };
 
-    const server = startServer(PORT, config);
+    // const server = startServer(PORT, config);
     
     const webhook = new Autohook(config);
     await webhook.removeWebhooks();

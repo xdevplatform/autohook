@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* global process, Buffer */
 const ngrok = require('ngrok');
+const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
 const path = require('path');
@@ -147,60 +148,60 @@ class Autohook extends EventEmitter {
 
   startServer() {
     console.log('calling webhook.startServer()');
-    fastify.get('/')
+    // fastify.get('/')
     
-    this.server = fastify.listen({
-      port: this.port,
-    }, (error, address) => {
-      console.log('checking for errors');
-      if (error) {
-        console.log('found error');
-        fastify.log(error);
-        return;
-      }
-      console.log(address);
-    });
-    // this.server = http.createServer((req, res) => {
-    //   const route = url.parse(req.url, true);
-    //
-    //   if (!route.pathname) {
+    // this.server = fastify.listen({
+    //   port: this.port,
+    // }, (error, address) => {
+    //   console.log('checking for errors');
+    //   if (error) {
+    //     console.log('found error');
+    //     fastify.log(error);
     //     return;
     //   }
-    //
-    //   if (route.query.crc_token) {
-    //     try {
-    //       if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
-    //         console.error('Cannot validate webhook signature');
-    //         return;
-    //       }
-    //     } catch (e) {
-    //       console.error(e);
-    //     }
-    //     const crc = validateWebhook(route.query.crc_token, this.auth);
-    //     res.writeHead(200, {'content-type': 'application/json'});
-    //     res.end(JSON.stringify(crc));
-    //   }
-    //
-    //   if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
-    //     let body = '';
-    //     req.on('data', (chunk) => {
-    //       body += chunk.toString();
-    //     });
-    //     req.on('end', () => {
-    //       try {
-    //         if (!validateSignature(req.headers, this.auth, body)) {
-    //           console.error('Cannot validate webhook signature');
-    //           return;
-    //         }
-    //       } catch (e) {
-    //         console.error(e);
-    //       }
-    //       this.emit('event', JSON.parse(body), req);
-    //       res.writeHead(200);
-    //       res.end();
-    //     });
-    //   }
-    // }).listen(this.port);
+    //   console.log(address);
+    // });
+    this.server = http.createServer((req, res) => {
+      const route = url.parse(req.url, true);
+
+      if (!route.pathname) {
+        return;
+      }
+
+      if (route.query.crc_token) {
+        try {
+          if (!validateSignature(req.headers, this.auth, url.parse(req.url).query)) {
+            console.error('Cannot validate webhook signature');
+            return;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        const crc = validateWebhook(route.query.crc_token, this.auth);
+        res.writeHead(200, {'content-type': 'application/json'});
+        res.end(JSON.stringify(crc));
+      }
+
+      if (req.method === 'POST' && req.headers['content-type'] === 'application/json') {
+        let body = '';
+        req.on('data', (chunk) => {
+          body += chunk.toString();
+        });
+        req.on('end', () => {
+          try {
+            if (!validateSignature(req.headers, this.auth, body)) {
+              console.error('Cannot validate webhook signature');
+              return;
+            }
+          } catch (e) {
+            console.error(e);
+          }
+          this.emit('event', JSON.parse(body), req);
+          res.writeHead(200);
+          res.end();
+        });
+      }
+    }).listen(this.port);
   }
 
   async setWebhook(webhookUrl) {
