@@ -123,6 +123,7 @@ class Autohook extends EventEmitter {
     consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
     ngrok_secret = (process.env.NGROK_AUTH_TOKEN || '').trim(),
     env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
+    webhookPath = (process.env.TWITTER_WEBHOOK_PATH || '').trim(),
     port = process.env.PORT || DEFAULT_PORT,
     headers = [],
   } = {}) {
@@ -133,17 +134,22 @@ class Autohook extends EventEmitter {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
       }
     });
+    
+    if (!webhookPath) {
+      webhookPath = '/';
+    }
 
     super();
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.ngrokSecret = ngrok_secret;
     this.env = env;
+    this.webhookPath = webhookPath;
     this.port = port;
     this.headers = headers;
   }
 
   /**
-   * Setup the GET and POST endpoints for twitter CRC using Fastify
+   * Set up the GET and POST endpoints for twitter CRC using Fastify
    * @returns {Promise<string>} fastify.listen promise
    */
   startFastifyServer() {
@@ -157,7 +163,7 @@ class Autohook extends EventEmitter {
       runFirst: true,
       routes: []
     });
-    fastify.get(WEBHOOK_ROUTE, (request, reply) => {
+    fastify.get(this.webhookPath, (request, reply) => {
       if (request.query.crc_token) {
         try {
           if (!validateSignature(request.headers, this.auth, url.parse(request.url).query)) {
@@ -174,7 +180,7 @@ class Autohook extends EventEmitter {
       }
     });
     
-    fastify.post(WEBHOOK_ROUTE, { config: { rawBody: true }}, (request, reply) => {
+    fastify.post(this.webhookPath, { config: { rawBody: true }}, (request, reply) => {
       try {
         if (!validateSignature(request.headers, this.auth, request.rawBody)) {
           console.error('Cannot validate webhook signature');
@@ -322,7 +328,7 @@ class Autohook extends EventEmitter {
     }
     const url = await ngrok.connect(this.port);
     try {
-      await this.setWebhook(`${url}${WEBHOOK_ROUTE}`);
+      await this.setWebhook(`${url}${this.webhookPath}`);
       console.log('Webhook created.');
     } catch (e) {
       console.log('Cannot create webhook:', e);
