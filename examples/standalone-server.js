@@ -57,9 +57,9 @@ const startServer = (port, auth) => http.createServer((req, res) => {
     if (NGROK_AUTH_TOKEN) {
       await ngrok.authtoken(process.env.NGROK_AUTH_TOKEN);
     }
-    const url = await ngrok.connect(PORT);
+    // const url = await ngrok.connect(PORT);
     // const webhookURL = `${url}/standalone-server/webhook`;
-    // const webhookURL = `${process.env.TWITTER_WEBHOOK_SERVER_URL}`;
+    const webhookURL = `${process.env.TWITTER_WEBHOOK_SERVER_URL}`;
 
     const config = {
       token: process.env.TWITTER_ACCESS_TOKEN,
@@ -73,8 +73,8 @@ const startServer = (port, auth) => http.createServer((req, res) => {
     
     const webhook = new Autohook(config);
     await webhook.removeWebhooks();
-    // await webhook.start(webhookURL);
-    await webhook.start();
+    await webhook.startServer();
+    await webhook.start(webhookURL);
     await webhook.subscribe({
       oauth_token: config.token,
       oauth_token_secret: config.token_secret,

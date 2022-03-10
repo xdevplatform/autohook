@@ -124,8 +124,7 @@ class Autohook extends EventEmitter {
     consumer_key = (process.env.TWITTER_CONSUMER_KEY || '').trim(),
     consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
     ngrok_secret = (process.env.NGROK_AUTH_TOKEN || '').trim(),
-    env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(), 
-    webhookUrl = (process.env.TWITTER_WEBHOOK_SERVER_URL || '').trim(),
+    env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
     port = process.env.PORT || DEFAULT_PORT,
     headers = [],
   } = {}) {
@@ -141,7 +140,6 @@ class Autohook extends EventEmitter {
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.ngrokSecret = ngrok_secret;
     this.env = env;
-    this.webhookUrl = webhookUrl;
     this.port = port;
     this.headers = headers;
   }
@@ -286,15 +284,11 @@ class Autohook extends EventEmitter {
     
     if (!webhookUrl) {
       this.startServer();
-      if (this.webhookUrl) {
-        webhookUrl = this.webhookUrl;
-      } else {
-        if (this.ngrokSecret) {
-          await ngrok.authtoken(this.ngrokSecret);
-        }
-        const url = await ngrok.connect(this.port);
-        webhookUrl = `${url}${WEBHOOK_ROUTE}`;
+      if (this.ngrokSecret) {
+        await ngrok.authtoken(this.ngrokSecret);
       }
+      const url = await ngrok.connect(this.port);
+      webhookUrl = `${url}${WEBHOOK_ROUTE}`;      
     }
     
     try {
