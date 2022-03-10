@@ -10,6 +10,8 @@ const EventEmitter = require('events');
 const URL = require('url').URL;
 const bearerToken = require('./bearer-token');
 const { get, post, del } = require('./client');
+const Fastify = require('fastify');
+const FastifyRawBody = require('fastify-raw-body');
 
 const {
   TooManySubscriptionsError,
@@ -121,6 +123,7 @@ class Autohook extends EventEmitter {
     consumer_secret = (process.env.TWITTER_CONSUMER_SECRET || '').trim(),
     ngrok_secret = (process.env.NGROK_AUTH_TOKEN || '').trim(),
     env = (process.env.TWITTER_WEBHOOK_ENV || '').trim(),
+    webhookPath = (process.env.TWITTER_WEBHOOK_PATH || '').trim(),
     port = process.env.PORT || DEFAULT_PORT,
     headers = [],
   } = {}) {
@@ -131,13 +134,70 @@ class Autohook extends EventEmitter {
         throw new TypeError(`'${key}' is empty or not set. Check your configuration and try again.`);
       }
     });
+    
+    if (!webhookPath) {
+      webhookPath = '/';
+    }
 
     super();
     this.auth = {token, token_secret, consumer_key, consumer_secret};
     this.ngrokSecret = ngrok_secret;
     this.env = env;
+    this.webhookPath = webhookPath;
     this.port = port;
     this.headers = headers;
+  }
+
+  /**
+   * Set up the GET and POST endpoints for twitter CRC using Fastify
+   * @returns {Promise<string>} fastify.listen promise
+   */
+  startFastifyServer() {
+    const fastify = new Fastify({
+      logger: process.env.FASTIFY_LOGGER_FLAG,
+    });
+    fastify.register(FastifyRawBody, {
+      field: 'rawBody',
+      global: false,
+      encoding: false,
+      runFirst: true,
+      routes: []
+    });
+    fastify.get(this.webhookPath, (request, reply) => {
+      if (request.query.crc_token) {
+        try {
+          if (!validateSignature(request.headers, this.auth, url.parse(request.url).query)) {
+            console.error('Cannot validate webhook signature');
+            return;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        const crc = validateWebhook(request.query.crc_token, this.auth);
+        reply.statusCode = 200;
+        reply.header('content-type', 'application/json');
+        reply.send(JSON.stringify(crc));
+      }
+    });
+    
+    fastify.post(this.webhookPath, { config: { rawBody: true }}, (request, reply) => {
+      try {
+        if (!validateSignature(request.headers, this.auth, request.rawBody)) {
+          console.error('Cannot validate webhook signature');
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      this.emit('event', request, reply);
+      reply.statusCode = 200;
+      reply.send();
+    });
+    
+    this.server = fastify.server;
+    return fastify.listen({
+      port: this.port
+    });
   }
 
   startServer() {
@@ -260,6 +320,20 @@ class Autohook extends EventEmitter {
   async removeWebhooks() {
     const webhooks = await this.getWebhooks(this.auth, this.env);
     await deleteWebhooks(webhooks, this.auth, this.env);
+  }
+  
+  async setNGrokWebhook() {
+    if (this.ngrokSecret) {
+      await ngrok.authtoken(this.ngrokSecret);
+    }
+    const url = await ngrok.connect(this.port);
+    try {
+      await this.setWebhook(`${url}${this.webhookPath}`);
+      console.log('Webhook created.');
+    } catch (e) {
+      console.log('Cannot create webhook:', e);
+      throw e;
+    }
   }
 
   async start(webhookUrl = null) {

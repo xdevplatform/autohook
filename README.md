@@ -1,6 +1,6 @@
-# Autohook 🎣
+# Autohook 🎣 + Fastify 
 
-Autohook configures and manages [Twitter webhooks](https://developer.twitter.com/en/docs/accounts-and-users/subscribe-account-activity/guides/managing-webhooks-and-subscriptions) for you. Zero configuration. Just run and go!
+This is a fork of [Autohook](https://github.com/twitterdev/autohook) that uses [Fastify](https://www.fastify.io/) instead of needle.
 
 ![Demo](https://github.com/twitterdev/autohook/raw/master/demo.gif)
 
