@@ -1,6 +1,6 @@
 {
   "name": "twitter-autohook",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Automatically setup and serve webhooks for the Twitter Account Activity API",
   "repository": {
     "type": "git",
